@@ -1,4 +1,4 @@
-"""Main module entry point for running the package as a module."""
+"""Entry point for running the module directly."""
 
 import sys
 

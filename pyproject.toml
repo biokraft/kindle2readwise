@@ -17,11 +17,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",         # Testing framework
-    "pytest-cov>=6.0.0",     # Test coverage
-    "pre-commit>=4.2.0",     # Pre-commit hooks
-    "jupyter>=1.1.1",        # Jupyter notebooks
-    "ruff>=0.11.2",          # Linting and formatting
+    "pytest>=8.0.0", # Testing framework
+    "pytest-cov>=6.0.0", # Test coverage
+    "pre-commit>=4.2.0", # Pre-commit hooks
+    "jupyter>=1.1.1", # Jupyter notebooks
+    "ruff>=0.11.2", # Linting and formatting
+    "responses>=0.25.7",
 ]
 ci = [
     "pytest>=8.0.0",

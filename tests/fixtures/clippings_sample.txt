@@ -1,10 +1,15 @@
-Sample Book Title (Author Name)
-- Your Highlight on Location 1234-1235 | Added on Monday, January 1, 2023 12:34:56 PM
+The_Power_of_Now (Eckhart Tolle)
+- Your Highlight on page 8 | Location 64-64 | Added on Tuesday, April 15, 2025 10:16:21 PM
 
-This is the highlighted text from the book.
+would change for the better. Values would shift in the flotsam
 ==========
-Another Book (Another Author)
-- Your Highlight on Page 42 | Added on Tuesday, February 15, 2023 9:45:00 AM
+﻿The_Power_of_Now (Eckhart Tolle)
+- Your Highlight on page 23 | Location 202-203 | Added on Tuesday, April 15, 2025 11:11:57 PM
 
-Another highlighted passage for testing.
+I love the Buddha's simple definition of enlightenment as "the end of suffering."
+==========
+﻿The_Power_of_Now (Eckhart Tolle)
+- Your Note on page 31 | Location 307 | Added on Tuesday, April 15, 2025 11:33:26 PM
+
+Watch the thinker or be present in the moment
 ==========
