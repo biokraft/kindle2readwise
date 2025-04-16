@@ -61,6 +61,14 @@ The application follows these design principles:
 - Implement filtering options
 - Create export history features
 
+### Phase 4: Automation and Notifications
+- Implement automatic Kindle device detection when connected
+- Add OS-dependent notification system for export events
+- Create configurable user confirmation options before export
+- Implement OS notification system for error reporting
+- Allow users to enable/disable automated export via CLI options
+- Support cross-platform device detection (Windows, macOS, Linux)
+
 ## Global Installation
 
 kindle2readwise can be installed as a global command-line tool using UV's tool installation capabilities. This allows users to run the application from any directory without having to navigate to the project folder.
