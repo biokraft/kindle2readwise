@@ -1,5 +1,9 @@
 # kindle2readwise
 
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![Ruff](https://img.shields.io/badge/code%20style-ruff-black)](https://github.com/astral-sh/ruff)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen)](https://pre-commit.com/)
+
 A Python application for exporting Kindle highlights to Readwise. This tool parses your Kindle's "My Clippings.txt" file and sends the highlights to your Readwise account, helping you manage and review your reading highlights efficiently.
 
 ## Features
@@ -19,26 +23,28 @@ A Python application for exporting Kindle highlights to Readwise. This tool pars
 
 ## Installation
 
-### Using UV (Recommended)
+### Installing UV
+
+This project uses the UV package manager. Follow the [official UV installation instructions](https://github.com/astral-sh/uv#installation) to install UV on your system.
+
+### Setting Up the Project
 
 ```bash
-# Install UV if you don't have it
-pip install uv
-
 # Clone the repository
-git clone https://github.com/yourusername/kindle2readwise.git
-cd kindle2readwise
+git clone https://github.com/biokraft/KindleClippings2Readwise.git
+cd KindleClippings2Readwise
 
-# Create virtual environment
+# Create and activate virtual environment
 uv venv
-
-# Activate virtual environment
 source .venv/bin/activate  # On Linux/macOS
 # or
 .venv\Scripts\activate     # On Windows
 
-# Install dependencies
+# Install dependencies for regular usage
 uv sync
+
+# Install dependencies for development (includes all extras)
+# uv sync --all-extras
 ```
 
 ## Usage
@@ -57,23 +63,41 @@ kindle2readwise --help
 
 ## Development
 
-For development work, install with development dependencies:
+For development work, install with all dependencies including development extras:
 
 ```bash
+# Install all dependencies including development extras
+uv sync --all-extras
+
+# Alternatively, you can install just the development extras
 uv sync --extra dev
 ```
+
+### Dependency Management with UV
+
+- Add main dependencies: `uv add <package>`
+- Add development dependencies: `uv add --optional dev <package>`
+- List all dependencies: `uv tree`
+- Update lockfile: `uv lock`
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. To set up:
+
+```bash
+# Install pre-commit (already included in dev dependencies)
+uv run pre-commit install
+
+# Run hooks manually on all files
+uv run pre-commit run --all-files
+```
+
+### Code Quality Tools
 
 Run tests:
 
 ```bash
 uv run pytest
-```
-
-Format code:
-
-```bash
-uv run ruff format .
-uv run ruff check --fix .
 ```
 
 ## Project Documentation
