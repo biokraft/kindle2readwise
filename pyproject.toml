@@ -1,0 +1,121 @@
+[project]
+name = "kindle2readwise"
+version = "0.1.0"
+description = "Export Kindle highlights to Readwise"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Seán Baufeld", email = "dickborder@gmail.com"}
+]
+dependencies = [
+    "requests>=2.31.0",      # HTTP requests for API communication
+    "sqlite-utils>=3.35",    # SQLite database utilities
+    "pydantic>=2.0.0",       # Data validation
+    "rich>=13.0.0",          # Rich terminal output
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",         # Testing framework
+    "pytest-cov>=6.0.0",     # Test coverage
+    "pre-commit>=4.2.0",     # Pre-commit hooks
+    "jupyter>=1.1.1",        # Jupyter notebooks
+    "ruff>=0.11.2",          # Linting and formatting
+]
+ci = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[project.scripts]
+kindle2readwise = "kindle2readwise.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--cov=kindle2readwise --cov-report=term-missing"
+
+[tool.ruff]
+# Same as Black.
+line-length = 120
+# Target Python 3.12.
+target-version = "py312"
+# Exclude directories from analysis
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    ".pytest_cache",
+    ".cursor",
+    "specs",       # documentation and specification files
+    "examples",    # example files
+    ".coverage"    # coverage reports
+]
+# Include Jupyter notebooks in analysis
+extend-include = ["*.ipynb"]
+# Allow autofix for all enabled rules (when `--fix`) is provided
+fix = true
+
+# Configure linting rules
+[tool.ruff.lint]
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "N",    # pep8-naming
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PT",   # flake8-pytest-style
+    "RET",  # flake8-return
+    "ARG",  # flake8-unused-arguments
+    "PD",   # pandas-vet
+    "PL",   # pylint
+    "TCH",  # flake8-type-checking
+    "ERA",  # eradicate (commented-out code)
+    "NPY",  # NumPy-specific rules
+    "RUF",  # Ruff-specific rules
+    "D",    # pydocstyle
+]
+# Ignore specific rules from enabled rule sets
+ignore = [
+    # Ignore errors about missing docstrings in D rule set
+    "D100", "D101", "D102", "D103", "D104", "D107",
+    # Allow non-abstract empty methods in abstract base classes
+    "B027",
+    # Allow boolean positional values in function calls, like `dict.get(x, False)`
+    "FBT003",
+    # Allow broad exceptions
+    "PT011",
+]
+# Exclude specific files or directories from linting
+exclude = [
+    ".git",
+    ".ruff_cache",
+    "__pypackages__",
+    "tests/fixtures/*",
+    "docs/conf.py",
+]
+# Fix violations automatically when possible
+fixable = ["ALL"]
+unfixable = []
+# Use PyDocStyle Google convention for docstrings
+pydocstyle.convention = "google"
+
+# Autofix rules
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+skip-magic-trailing-comma = false

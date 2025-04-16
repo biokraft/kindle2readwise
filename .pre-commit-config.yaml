@@ -1,0 +1,43 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-symlinks
+      - id: check-yaml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: requirements-txt-fixer
+      - id: trailing-whitespace
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix]
+        types_or: [python, pyi, jupyter]
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+
+-   repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+        - id: nbstripout
+          files: ".ipynb$"
+          args: [
+              "--keep-output", # Optional: remove this if you want to strip all outputs
+              "--extra-keys",
+              "metadata.kernelspec metadata.language_info.version",
+              "--strip-empty-cells",
+          ]
+
+-   repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.6.11
+    hooks:
+      - id: uv-lock
+      # To make sure your uv.lock file is up to date

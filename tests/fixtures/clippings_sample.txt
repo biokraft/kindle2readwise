@@ -1,0 +1,10 @@
+Sample Book Title (Author Name)
+- Your Highlight on Location 1234-1235 | Added on Monday, January 1, 2023 12:34:56 PM
+
+This is the highlighted text from the book.
+==========
+Another Book (Another Author)
+- Your Highlight on Page 42 | Added on Tuesday, February 15, 2023 9:45:00 AM
+
+Another highlighted passage for testing.
+==========

@@ -1,0 +1,70 @@
+---
+description: Project setup: Apply when setting up project files/directories/modules
+globs:
+alwaysApply: false
+---
+# Python Project Structure and Organization
+
+## Introduction
+This guide defines the standard project structure and organization for Python projects. For dependency management with UV, Python version management, virtual environments, and package management, refer to the [Python dependency management with UV](mdc:.cursor/rules/python/02-deps-management.mdc) rule.
+
+## Guidelines
+
+### Example Project Root Structure
+```
+project_name/
+├── project_name/
+│   ├── __init__.py
+│   ├── ...
+├── tests/
+│   ├── __init__.py
+│   └── ...
+├── docs/
+├── .venv/                  # Virtual environment
+├── README.md
+├── pyproject.toml         # Project metadata and dependencies
+├── uv.lock                # UV lockfile for dependency versions
+└── .gitignore
+```
+
+> **Note**: For details about managing the virtual environment with UV, dependency management with pyproject.toml, or setting up Python versions, refer to the [Python dependency management with UV](mdc:.cursor/rules/python/02-deps-management.mdc) rule.
+
+### Module Organization
+- Keep modules focused and single-purpose
+- Use __init__.py files appropriately
+- Implement lazy imports for heavy dependencies
+- Use relative imports within packages
+
+### Configuration
+- Use environment variables for deployment settings
+- Keep configuration in dedicated config files
+- Never commit sensitive data or credentials
+- Use .env files for local development
+
+### Documentation
+- Include a comprehensive README.md
+- Maintain documentation in docs/
+- Document installation and setup procedures
+- Include examples and usage guides
+- For dependency installation instructions, refer to the [Python dependency management with UV](mdc:.cursor/rules/python/02-deps-management.mdc) rule
+
+## Examples
+
+# Example basic project structure
+```
+my_project/
+├── my_project/
+│   ├── __init__.py
+│   ├── core.py
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   └── helpers.py
+├── tests/
+│   ├── __init__.py
+│   ├── test_core.py
+│   └── test_utils.py
+├── docs/
+│   └── usage.md
+├── README.md
+└── pyproject.toml  # For details on configuring this file, see the UV dependency management rule
+```
