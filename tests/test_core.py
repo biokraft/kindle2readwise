@@ -106,7 +106,7 @@ def test_validate_setup_success(mock_path_exists, mock_app):  # noqa: ARG001
     is_valid, error = app.validate_setup()
 
     assert is_valid is True
-    assert error == ""
+    assert error == "Setup validated successfully."
 
 
 @patch("pathlib.Path.exists", return_value=False)
@@ -143,10 +143,11 @@ def test_process_new_highlights(mock_app):
 
     stats = app.process()
 
-    # Verify the results
-    assert stats.total == TOTAL_CLIPPINGS
-    assert stats.new == CLIPPINGS_NEW
-    assert stats.dupe == CLIPPINGS_DUPE
+    # Verify the results using correct attribute names
+    assert stats.total_processed == TOTAL_CLIPPINGS
+    assert stats.new_sent == CLIPPINGS_NEW
+    assert stats.duplicates_skipped == CLIPPINGS_DUPE
+    assert stats.failed_to_send == 0  # Assuming success
 
     # Verify parser was called
     parser_mock.parse.assert_called_once()
@@ -161,6 +162,15 @@ def test_process_new_highlights(mock_app):
     dao_mock.start_export_session.assert_called_once()
     dao_mock.complete_export_session.assert_called_once()
 
+    # Verify the sent stats match what's passed to complete_export_session
+    call_kwargs = dao_mock.complete_export_session.call_args.kwargs
+    assert call_kwargs["status"] == "success"
+    exported_stats = call_kwargs["stats"]
+    assert exported_stats["total_processed"] == TOTAL_CLIPPINGS
+    assert exported_stats["sent"] == CLIPPINGS_NEW
+    assert exported_stats["duplicates"] == CLIPPINGS_DUPE
+    assert exported_stats["failed"] == 0
+
 
 def test_process_duplicate_highlights(mock_app):
     """Test processing with duplicate highlights."""
@@ -171,10 +181,11 @@ def test_process_duplicate_highlights(mock_app):
 
     stats = app.process()
 
-    # Verify the results
-    assert stats.total == TOTAL_CLIPPINGS
-    assert stats.new == CLIPPINGS_DUPE
-    assert stats.dupe == TOTAL_CLIPPINGS
+    # Verify the results using correct attribute names
+    assert stats.total_processed == TOTAL_CLIPPINGS
+    assert stats.new_sent == CLIPPINGS_DUPE
+    assert stats.duplicates_skipped == TOTAL_CLIPPINGS
+    assert stats.failed_to_send == 0
 
     # Verify parser was called
     parser_mock.parse.assert_called_once()
@@ -189,6 +200,15 @@ def test_process_duplicate_highlights(mock_app):
     dao_mock.start_export_session.assert_called_once()
     dao_mock.complete_export_session.assert_called_once()
 
+    # Verify the sent stats match what's passed to complete_export_session
+    call_kwargs = dao_mock.complete_export_session.call_args.kwargs
+    assert call_kwargs["status"] == "success"  # Still success even if all dupes
+    exported_stats = call_kwargs["stats"]
+    assert exported_stats["total_processed"] == TOTAL_CLIPPINGS
+    assert exported_stats["sent"] == CLIPPINGS_DUPE
+    assert exported_stats["duplicates"] == TOTAL_CLIPPINGS
+    assert exported_stats["failed"] == 0
+
 
 def test_process_mixed_highlights(mock_app):
     """Test processing with mix of new and duplicate highlights."""
@@ -198,12 +218,16 @@ def test_process_mixed_highlights(mock_app):
     # First highlight is a duplicate, others are new
     dao_mock.highlight_exists.side_effect = [True, False, False]
 
+    # Set the exact return value to match test expectations
+    client_mock.send_highlights.return_value = {"sent": 2, "failed": 0}
+
     stats = app.process()
 
-    # Verify the results
-    assert stats.total == TOTAL_CLIPPINGS
-    assert stats.new == TWO_CLIPPINGS
-    assert stats.dupe == ONE_CLIPPING
+    # Verify the results using correct attribute names
+    assert stats.total_processed == TOTAL_CLIPPINGS
+    assert stats.new_sent == TWO_CLIPPINGS
+    assert stats.duplicates_skipped == ONE_CLIPPING
+    assert stats.failed_to_send == 0
 
     # Verify parser was called
     parser_mock.parse.assert_called_once()
@@ -220,7 +244,10 @@ def test_process_mixed_highlights(mock_app):
     dao_mock.complete_export_session.assert_called_once()
 
     # Verify the sent stats match what's passed to complete_export_session
-    exported_stats = dao_mock.complete_export_session.call_args[0][1]
-    assert exported_stats["total"] == TOTAL_CLIPPINGS
-    assert exported_stats["new"] == TWO_CLIPPINGS
-    assert exported_stats["dupe"] == ONE_CLIPPING
+    call_kwargs = dao_mock.complete_export_session.call_args.kwargs
+    assert call_kwargs["status"] == "success"
+    exported_stats = call_kwargs["stats"]
+    assert exported_stats["total_processed"] == TOTAL_CLIPPINGS
+    assert exported_stats["sent"] == TWO_CLIPPINGS
+    assert exported_stats["duplicates"] == ONE_CLIPPING
+    assert exported_stats["failed"] == 0

@@ -1,4 +1,4 @@
-"""Entry point for running the module directly."""
+"""Allows running the application as a module (python -m kindle2readwise)."""
 
 import sys
 

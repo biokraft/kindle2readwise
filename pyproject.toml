@@ -9,10 +9,10 @@ authors = [
     {name = "Seán Baufeld", email = "dickborder@gmail.com"}
 ]
 dependencies = [
-    "requests>=2.31.0",      # HTTP requests for API communication
-    "sqlite-utils>=3.35",    # SQLite database utilities
-    "pydantic>=2.0.0",       # Data validation
-    "rich>=13.0.0",          # Rich terminal output
+    "requests>=2.31.0", # HTTP requests for API communication
+    "sqlite-utils>=3.35", # SQLite database utilities
+    "pydantic>=2.0.0", # Data validation
+    "rich>=13.0.0", # Rich terminal output
 ]
 
 [project.optional-dependencies]
