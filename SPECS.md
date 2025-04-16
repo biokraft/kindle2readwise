@@ -56,18 +56,31 @@ The application follows these design principles:
 - Implement database storage (Done)
 - Create command-line interface (Done)
 
-### Phase 3: Advanced Features
-- Add configuration management
-- Implement filtering options
-- Create export history features
+### Phase 3: Configuration Management
+- Implement secure storage for Readwise API token
+- Create config file structure for user preferences
+- Add command-line options for configuration settings
+- Support platform-specific configuration directories
 
-### Phase 4: Automation and Notifications
+### Phase 4: Export History
+- Implement tracking of export sessions
+- Add ability to view past export statistics
+- Create summary reports of exported highlights
+- Allow review of previously exported content
+
+### Phase 5: Kindle Device Detection
 - Implement automatic Kindle device detection when connected
-- Add OS-dependent notification system for export events
-- Create configurable user confirmation options before export
-- Implement OS notification system for error reporting
-- Allow users to enable/disable automated export via CLI options
 - Support cross-platform device detection (Windows, macOS, Linux)
+
+### Phase 6: Notification System
+- Add OS-dependent notification system for export events
+- Implement OS notification system for error reporting
+- Create user-configurable notification preferences
+
+### Phase 7: Automated Export Controls
+- Create configurable user confirmation options before export
+- Allow users to enable/disable automated export via CLI options
+- Implement scheduled exports based on user preferences
 
 ## Global Installation
 
