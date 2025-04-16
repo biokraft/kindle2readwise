@@ -73,7 +73,7 @@ The following indexes will be created to optimize performance:
 1. **Initialize Database**:
    - Create tables if they don't exist
    - Verify schema integrity
-   - Perform migrations if needed
+   - Perform migrations if needed using sqlite-utils migration capabilities
 
 2. **Check for Duplicate**:
    - Generate hash for a highlight
@@ -125,7 +125,51 @@ class HighlightsDAO:
 
 1. **Location**: The database file will be stored in a user-specific data directory
 2. **Backup**: Automatic backups will be created before structural changes
-3. **Migrations**: Version tracking will allow for schema updates in future releases
+3. **Migrations**:
+   - sqlite-utils migration capabilities will be used for any future schema changes
+   - Each migration will be tracked with a version number and description
+   - Schema changes will be applied incrementally and documented
+
+## Migration Strategy
+
+1. **Technology**: All database migrations will leverage sqlite-utils built-in migration capabilities
+2. **Migration Process**:
+   - Use `sqlite-utils transform` for simple column additions, renames, or data transformations
+   - Use `sqlite-utils add-column` for adding new columns to existing tables
+   - Use `sqlite-utils create-table` programmatically for new tables
+   - Complex migrations will be implemented as Python functions using sqlite-utils methods
+3. **Version Control**:
+   - Database version will be stored in a dedicated `_migrations` table
+   - Each migration will have a unique sequence number and description
+   - Migrations will be applied in order and only once
+
+```python
+def apply_migrations(db):
+    """Apply any pending migrations to the database."""
+    # Ensure migrations table exists
+    if "_migrations" not in db.table_names():
+        db.create_table("_migrations", {
+            "id": int,
+            "name": str,
+            "applied": str
+        }, pk="id")
+
+    # Define migrations
+    migrations = [
+        # Example migration:
+        # (1, "add_note_column", lambda: db.add_column("highlights", "note", str)),
+    ]
+
+    # Apply any pending migrations
+    for id, name, operation in migrations:
+        if not db["_migrations"].count_where("id = ?", [id]):
+            operation()
+            db["_migrations"].insert({
+                "id": id,
+                "name": name,
+                "applied": datetime.now().isoformat()
+            })
+```
 
 ## Security Considerations
 
