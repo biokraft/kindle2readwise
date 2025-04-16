@@ -203,3 +203,34 @@ The CLI will be implemented using the `argparse` module from the Python standard
 2. **Consistent Return Codes**: Standard exit codes to indicate success or specific failures
 3. **Progressive Disclosure**: Basic commands are simple, advanced features available when needed
 4. **Terminal Compatibility**: Support for various terminal environments and capabilities
+
+## Global Installation
+
+The application is designed to support installation as a global command-line tool using UV's tool installation capabilities. This allows users to access the `kindle2readwise` command from any directory.
+
+### Installation Methods
+
+```bash
+# Standard global installation
+uv tool install .
+
+# Development/editable installation
+uv tool install --editable .
+```
+
+### Design Considerations for Global Usage
+
+1. **Configuration Path Awareness**: The CLI must handle configuration files in platform-appropriate locations:
+   - Linux: `~/.config/kindle2readwise/`
+   - macOS: `~/Library/Application Support/kindle2readwise/`
+   - Windows: `%APPDATA%\kindle2readwise\`
+
+2. **Path Resolution**: For file arguments (like clippings files), support both:
+   - Absolute paths
+   - Relative paths that resolve correctly regardless of current working directory
+
+3. **Environment Independence**: Operation should be consistent regardless of the directory from which the command is invoked
+
+4. **Access Control**: Respect system permissions when accessing configuration and database files
+
+5. **Update Mechanism**: Provide commands to check for and apply updates to the globally installed tool

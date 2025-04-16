@@ -60,3 +60,33 @@ The application follows these design principles:
 - Add configuration management
 - Implement filtering options
 - Create export history features
+
+## Global Installation
+
+kindle2readwise can be installed as a global command-line tool using UV's tool installation capabilities. This allows users to run the application from any directory without having to navigate to the project folder.
+
+### Installation Options
+
+- **Standard Global Installation**: Installs the tool globally while isolating its dependencies
+  ```bash
+  uv tool install .
+  ```
+
+- **Development Installation**: Installs in editable mode, allowing code changes to be immediately reflected
+  ```bash
+  uv tool install --editable .
+  ```
+
+### Uninstallation
+
+The tool can be uninstalled using:
+```bash
+uv tool uninstall kindle2readwise
+```
+
+### Configuration with Global Installation
+
+When installed globally, the application should:
+- Use appropriate platform-specific directories for configuration and data storage
+- Consider the user's home directory for default config locations
+- Support both global and local (project-specific) configuration options

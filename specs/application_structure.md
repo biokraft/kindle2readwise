@@ -149,6 +149,43 @@ The typical execution flow of the application is:
    - Records successful exports in the database
    - Provides summary of the operation
 
+## Global Installation Support
+
+The application supports installation as a global command-line tool using UV's tool installation capabilities. This affects the application structure in several ways:
+
+### Package Structure
+
+The application must follow proper packaging practices to ensure it can be installed as both:
+- A local development project
+- A globally installed tool
+
+This includes:
+- Proper `__main__.py` implementation for direct execution
+- Console script entry points defined in `pyproject.toml`
+- Appropriate handling of package resources and data files
+
+### Path Management
+
+When installed globally, the application must be path-aware and handle:
+- Reading configuration from standardized locations
+- Storing data in user-specific directories
+- Resolving both absolute and relative paths provided as arguments
+- Finding associated resources regardless of execution context
+
+### Configuration Storage
+
+With global installation, configuration should be stored in platform-specific user directories:
+- Linux: `~/.config/kindle2readwise/`
+- macOS: `~/Library/Application Support/kindle2readwise/`
+- Windows: `%APPDATA%\kindle2readwise\`
+
+### Update Mechanism
+
+The application should support updating itself when installed globally:
+- Version checking functionality
+- Update command in the CLI
+- Deferred update process to prevent disruption
+
 ## Error Handling Strategy
 
 The application implements a layered error handling approach:
