@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def db_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def dao(db_path: Path) -> HighlightsDAO:
+def dao(db_path: Path) -> Generator[HighlightsDAO, None, None]:
     """Fixture to provide an initialized HighlightsDAO instance for each test."""
     dao_instance = HighlightsDAO(db_path=db_path)
     yield dao_instance
