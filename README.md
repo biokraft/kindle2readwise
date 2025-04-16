@@ -47,6 +47,36 @@ uv sync
 # uv sync --all-extras
 ```
 
+### Global Installation
+
+To install kindle2readwise as a global command-line tool that can be used from any directory:
+
+```bash
+# From the project directory
+uv tool install .
+
+# For development/editable installation (changes to code are reflected immediately)
+uv tool install --editable .
+```
+
+This creates an isolated environment for the tool while making the `kindle2readwise` command globally available in your PATH.
+
+### Uninstallation
+
+To uninstall the globally installed tool:
+
+```bash
+# Uninstall the tool
+uv tool uninstall kindle2readwise
+```
+
+If you need to clean up UV-related data:
+
+```bash
+# Clean UV cache (optional)
+uv cache clean
+```
+
 ## Usage
 
 Basic usage:
