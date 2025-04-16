@@ -31,8 +31,8 @@ This project uses the UV package manager. Follow the [official UV installation i
 
 ```bash
 # Clone the repository
-git clone https://github.com/biokraft/KindleClippings2Readwise.git
-cd KindleClippings2Readwise
+git clone https://github.com/biokraft/kindle2readwise.git
+cd kindle2readwise
 
 # Create and activate virtual environment
 uv venv
