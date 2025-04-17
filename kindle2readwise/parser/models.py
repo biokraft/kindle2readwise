@@ -1,17 +1,17 @@
-from dataclasses import dataclass
 from datetime import datetime
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class KindleClipping:
+
+class KindleClipping(BaseModel):
     """Represents a single Kindle clipping (highlight, note, or bookmark)."""
 
-    title: str
-    author: str | None
-    type: str  # "highlight", "note", or "bookmark"
-    location: str
-    date: datetime
-    content: str
+    title: str = Field(description="The title of the book")
+    author: str | None = Field(default=None, description="The author of the book")
+    type: str = Field(description="Type of clipping: 'highlight', 'note', or 'bookmark'")
+    location: str = Field(description="Location information from the Kindle")
+    date: datetime = Field(description="Date when the clipping was created")
+    content: str = Field(description="Content of the clipping")
 
     def get_identifier(self) -> str:
         """Generate a unique identifier for the clipping based on title, author, and content."""

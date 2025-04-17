@@ -1,25 +1,23 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class ReadwiseHighlight:
+class ReadwiseHighlight(BaseModel):
     """Represents a highlight to be sent to the Readwise API."""
 
-    text: str
-    title: str
-    author: str | None = None
-    source_type: str = "kindle"
-    category: str = "books"
-    location: str | None = None
-    location_type: str | None = "location"
-    highlighted_at: str | None = None
+    text: str = Field(description="The text content of the highlight")
+    title: str = Field(description="The title of the book")
+    author: str | None = Field(default=None, description="The author of the book")
+    source_type: str = Field(default="kindle", description="The source type of the highlight")
+    category: str = Field(default="books", description="The category of the highlight")
+    location: str | None = Field(default=None, description="The location of the highlight within the book")
+    location_type: str | None = Field(default="location", description="The type of location (e.g., 'location', 'page')")
+    highlighted_at: str | None = Field(default=None, description="ISO timestamp when the highlight was created")
 
 
-@dataclass
-class ReadwiseHighlightBatch:
+class ReadwiseHighlightBatch(BaseModel):
     """Represents a batch of highlights to be sent to the Readwise API."""
 
-    highlights: list[ReadwiseHighlight]
+    highlights: list[ReadwiseHighlight] = Field(description="A list of highlights to send to Readwise")
 
     def to_dict(self) -> dict:
         """Convert the batch to the format expected by the Readwise API."""

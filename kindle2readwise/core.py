@@ -1,29 +1,17 @@
 """Core functionality for kindle2readwise application."""
 
 import logging
-
-# Define a simple structure for results (can be expanded)
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 # Use TYPE_CHECKING to avoid circular imports for type hints if models grow complex
 # Use the DAO and default path from the database module
 from .database import DEFAULT_DB_PATH, HighlightsDAO
+from .models import ExportStats
 from .parser import KindleClipping, KindleClippingsParser
 from .readwise import ReadwiseAPIClient
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ExportStats:
-    """Statistics for an export session."""
-
-    total_processed: int = 0
-    new_sent: int = 0
-    duplicates_skipped: int = 0
-    failed_to_send: int = 0
 
 
 class Kindle2Readwise:
