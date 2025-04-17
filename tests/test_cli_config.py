@@ -12,7 +12,7 @@ from unittest import mock
 
 import pytest
 
-from kindle2readwise.cli import handle_config_paths, handle_config_set, handle_config_show, handle_config_token, main
+from kindle2readwise.cli import handle_config_paths, handle_config_set, handle_config_show, handle_config_token
 from kindle2readwise.config import DEFAULT_CONFIG
 
 
@@ -322,14 +322,18 @@ class TestLogLevelValidation:
         valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
         for level in valid_log_levels:
-            # Mock command line args
-            test_args = ["config", "set", "log_level", level]
-            with (
-                mock.patch("sys.argv", ["kindle2readwise", *test_args]),
-                pytest.raises(SystemExit, code=0),
-                CaptureStdout(),
-            ):
-                main()
+            # Mock args
+            args = mock.MagicMock()
+            args.key = "log_level"
+            args.value = level
+
+            # Call the function
+            with CaptureStdout() as captured:
+                handle_config_set(args)
+                output = captured.get_output()
+
+            # Check output
+            assert f"Configuration updated: log_level = {level}" in output
 
             # Verify config was updated correctly
             with open(mock_config_file) as f:
@@ -343,14 +347,14 @@ class TestLogLevelValidation:
             config = json.load(f)
         initial_level = config.get("log_level", "INFO")
 
-        # Test with an invalid log level
-        test_args = ["config", "set", "log_level", "INVALID"]
-        with (
-            mock.patch("sys.argv", ["kindle2readwise", *test_args]),
-            pytest.raises(SystemExit, code=1),
-            CaptureStdout(),
-        ):
-            main()
+        # Mock args
+        args = mock.MagicMock()
+        args.key = "log_level"
+        args.value = "INVALID"
+
+        # Call the function and expect system exit
+        with pytest.raises(SystemExit):
+            handle_config_set(args)
 
         # Verify config was not changed
         with open(mock_config_file) as f:

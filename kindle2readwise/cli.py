@@ -119,6 +119,7 @@ def handle_export(args: argparse.Namespace) -> None:
             clippings_file=str(clippings_file),
             readwise_token=readwise_token,
             db_path=db_path,
+            dry_run=args.dry_run,
         )
 
         is_valid, validation_msg = app.validate_setup()
@@ -129,7 +130,7 @@ def handle_export(args: argparse.Namespace) -> None:
         logger.info("Setup valid. Starting export process...")
         stats = app.process()
 
-        _print_export_summary(stats, clippings_file)
+        _print_export_summary(stats, clippings_file, args.dry_run)
 
     except FileNotFoundError as e:
         logger.critical("Error: %s", e)
@@ -176,22 +177,24 @@ def _check_export_options(args: argparse.Namespace) -> None:
     """Check export command options."""
     if args.force:
         logger.warning("Ignoring --force option (not implemented yet).")
-    if args.dry_run:
-        logger.warning("Ignoring --dry-run option (not implemented yet).")
     if args.output:
         logger.warning("Ignoring --output option (not implemented yet).")
 
 
-def _print_export_summary(stats, clippings_file: Path) -> None:
+def _print_export_summary(stats, clippings_file: Path, dry_run: bool) -> None:
     """Print export summary and handle exit codes."""
     print("\n--- Export Summary ---")
+    if dry_run:
+        print("[DRY RUN MODE - No highlights were actually sent to Readwise]")
     print(f"Clippings File: {clippings_file}")
     print(f"Total Clippings Processed: {stats.total_processed}")
-    print(f"New Highlights Sent to Readwise: {stats.new_sent}")
+    print(f"New Highlights {'Found' if dry_run else 'Sent to Readwise'}: {stats.new_sent}")
     print(f"Duplicate Highlights Skipped: {stats.duplicates_skipped}")
     if stats.failed_to_send > 0:
         print(f"[bold red]Highlights Failed to Send: {stats.failed_to_send}[/bold red]", file=sys.stderr)
         sys.exit(1)  # Exit with error if sends failed
+    elif dry_run:
+        print("Dry run completed successfully. No actual highlights were sent.")
     else:
         print("All new highlights sent successfully!")
 
