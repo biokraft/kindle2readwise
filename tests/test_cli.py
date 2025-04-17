@@ -222,6 +222,7 @@ def test_cli_logging_setup(mock_setup_logging, tmp_path):
     with (
         patch("kindle2readwise.cli.Kindle2Readwise") as mock_kindle2readwise,
         patch("kindle2readwise.cli.sys.exit") as mock_exit,
+        patch("kindle2readwise.cli.get_config_value", return_value="INFO"),  # Ensure config returns INFO for log_level
     ):
         mock_instance = mock_kindle2readwise.return_value
         mock_instance.validate_setup.return_value = (True, "")

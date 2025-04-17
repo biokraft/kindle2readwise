@@ -12,7 +12,7 @@ from unittest import mock
 
 import pytest
 
-from kindle2readwise.cli import handle_config_paths, handle_config_set, handle_config_show, handle_config_token
+from kindle2readwise.cli import handle_config_paths, handle_config_set, handle_config_show, handle_config_token, main
 from kindle2readwise.config import DEFAULT_CONFIG
 
 
@@ -251,3 +251,109 @@ class TestConfigCommands:
         assert "Data directory" in output
         assert "Database path" in output
         assert "Detected platform" in output
+
+    def test_handle_config_set_valid_log_level(self, mock_config_file):
+        """Test setting a valid log level."""
+        # Test each valid log level
+        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+        for level in valid_log_levels:
+            # Mock args
+            args = mock.MagicMock()
+            args.key = "log_level"
+            args.value = level
+
+            # Call the function
+            with CaptureStdout() as captured:
+                handle_config_set(args)
+                output = captured.get_output()
+
+            # Check output
+            assert f"Configuration updated: log_level = {level}" in output
+
+            # Check config file was updated correctly
+            with open(mock_config_file) as f:
+                config = json.load(f)
+                assert config["log_level"] == level
+
+    def test_handle_config_set_valid_log_level_lowercase(self, mock_config_file):
+        """Test setting a valid log level with lowercase input."""
+        # Mock args
+        args = mock.MagicMock()
+        args.key = "log_level"
+        args.value = "debug"  # lowercase
+
+        # Call the function
+        with CaptureStdout() as captured:
+            handle_config_set(args)
+            output = captured.get_output()
+
+        # Check output
+        assert "Configuration updated: log_level = DEBUG" in output
+
+        # Check config file was updated with uppercase value
+        with open(mock_config_file) as f:
+            config = json.load(f)
+            assert config["log_level"] == "DEBUG"  # Should be stored in uppercase
+
+    def test_handle_config_set_invalid_log_level(self, mock_config_file):
+        """Test setting an invalid log level."""
+        # Mock args
+        args = mock.MagicMock()
+        args.key = "log_level"
+        args.value = "INVALID_LEVEL"
+
+        # Call the function and expect system exit
+        with pytest.raises(SystemExit):
+            handle_config_set(args)
+
+        # After SystemExit, check that the config wasn't changed
+        with open(mock_config_file) as f:
+            config = json.load(f)
+            # log_level should not be the invalid value
+            assert config.get("log_level") != "INVALID_LEVEL"
+
+
+class TestLogLevelValidation:
+    """Test validation of log level values."""
+
+    def test_valid_log_levels(self, mock_config_file):
+        """Test that valid log levels are accepted."""
+        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+        for level in valid_log_levels:
+            # Mock command line args
+            test_args = ["config", "set", "log_level", level]
+            with (
+                mock.patch("sys.argv", ["kindle2readwise", *test_args]),
+                pytest.raises(SystemExit, code=0),
+                CaptureStdout(),
+            ):
+                main()
+
+            # Verify config was updated correctly
+            with open(mock_config_file) as f:
+                config = json.load(f)
+                assert config["log_level"] == level
+
+    def test_invalid_log_level(self, mock_config_file):
+        """Test that invalid log levels are rejected."""
+        # Set a known initial log level
+        with open(mock_config_file) as f:
+            config = json.load(f)
+        initial_level = config.get("log_level", "INFO")
+
+        # Test with an invalid log level
+        test_args = ["config", "set", "log_level", "INVALID"]
+        with (
+            mock.patch("sys.argv", ["kindle2readwise", *test_args]),
+            pytest.raises(SystemExit, code=1),
+            CaptureStdout(),
+        ):
+            main()
+
+        # Verify config was not changed
+        with open(mock_config_file) as f:
+            config = json.load(f)
+            assert config["log_level"] == initial_level
+            assert config["log_level"] != "INVALID"

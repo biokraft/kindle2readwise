@@ -295,6 +295,14 @@ def handle_config_set(args: argparse.Namespace) -> None:
             logger.error(f"Invalid boolean value for {args.key}: {args.value}")
             print("Error: Invalid boolean value. Use 'true' or 'false'.")
             sys.exit(1)
+    # Validate log_level values
+    elif args.key == "log_level":
+        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if args.value.upper() not in valid_log_levels:
+            logger.error(f"Invalid log level: {args.value}")
+            print(f"Error: Invalid log level. Valid values are: {', '.join(valid_log_levels)}")
+            sys.exit(1)
+        value = args.value.upper()
     else:
         value = args.value
 
@@ -352,8 +360,8 @@ def main() -> None:
         "--log-level",
         type=str.upper,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="WARNING",
-        help="Set the logging level (default: WARNING).",
+        default="INFO",
+        help="Set the logging level (default: INFO).",
     )
     parser.add_argument(
         "--log-file", type=str, default=None, help="Log output to a specified file in addition to the console."
@@ -423,7 +431,11 @@ def main() -> None:
     # Parse arguments and call the appropriate handler
     args = parser.parse_args()
 
-    # Set up logging
+    # Set up logging using config value if command line arg not provided
+    if args.log_level == "INFO":  # This is the default value from argparse
+        config_log_level = get_config_value("log_level", "INFO")
+        args.log_level = config_log_level
+
     setup_logging(level=args.log_level, log_file=args.log_file)
 
     # Call the appropriate handler function
