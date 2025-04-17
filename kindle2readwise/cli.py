@@ -7,9 +7,20 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .config import (
+    get_config_dir,
+    get_config_value,
+    get_data_dir,
+    get_readwise_token,
+    is_configured,
+    list_config,
+    set_config_value,
+    set_readwise_token,
+)
 from .core import Kindle2Readwise
 from .database import DEFAULT_DB_PATH
 from .logging_config import setup_logging
+from .utils.credentials import mask_token
 
 # Environment variable for Readwise token (optional)
 READWISE_TOKEN_ENV_VAR = "READWISE_API_TOKEN"
@@ -67,19 +78,26 @@ def configure_logging(verbose: bool = False) -> None:
     logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-def get_readwise_token(args: argparse.Namespace) -> str | None:
-    """Get Readwise token from args, environment variable, or config (TBD)."""
+def get_readwise_token_cli(args: argparse.Namespace) -> str | None:
+    """Get Readwise token from args, environment variable, or config."""
+    # First try command line argument
     if args.api_token:
         logger.debug("Using Readwise API token from command line argument.")
         return args.api_token
 
+    # Then try environment variable
     token_from_env = os.environ.get(READWISE_TOKEN_ENV_VAR)
     if token_from_env:
         logger.debug("Using Readwise API token from environment variable %s.", READWISE_TOKEN_ENV_VAR)
         return token_from_env
 
-    # TODO: Implement reading token from a configuration file
-    logger.debug("Readwise API token not found in args or environment variable.")
+    # Finally try configured token
+    token_from_config = get_readwise_token()
+    if token_from_config:
+        logger.debug("Using Readwise API token from configuration.")
+        return token_from_config
+
+    logger.debug("Readwise API token not found in args, environment variable, or configuration.")
     return None
 
 
@@ -87,33 +105,15 @@ def handle_export(args: argparse.Namespace) -> None:
     """Handle the 'export' command."""
     logger.info("Starting 'export' command.")
 
-    readwise_token = get_readwise_token(args)
-    if not readwise_token:
-        logger.critical(
-            "Readwise API token not provided. Set it using the --api-token flag or the %s environment variable.",
-            READWISE_TOKEN_ENV_VAR,
-        )
-        sys.exit(1)
+    # Setup part
+    readwise_token = _get_export_token(args)
+    clippings_file = _get_export_clippings_file(args)
+    db_path = _get_export_db_path(args)
 
-    # Determine clippings file path
-    clippings_file_path = Path(args.file)
-    if not clippings_file_path.is_absolute():
-        clippings_file_path = Path.cwd() / clippings_file_path
-    clippings_file = clippings_file_path.resolve()
-    logger.debug("Using clippings file: %s", clippings_file)
+    # Check export options
+    _check_export_options(args)
 
-    # Determine database path
-    db_path = Path(args.db_path).resolve() if args.db_path else DEFAULT_DB_PATH
-    logger.debug("Using database path: %s", db_path)
-
-    # TODO: Handle other export options like --force, --dry-run, --output
-    if args.force:
-        logger.warning("Ignoring --force option (not implemented yet).")  # Placeholder
-    if args.dry_run:
-        logger.warning("Ignoring --dry-run option (not implemented yet).")  # Placeholder
-    if args.output:
-        logger.warning("Ignoring --output option (not implemented yet).")  # Placeholder
-
+    # Execute export
     try:
         app = Kindle2Readwise(
             clippings_file=str(clippings_file),
@@ -129,16 +129,7 @@ def handle_export(args: argparse.Namespace) -> None:
         logger.info("Setup valid. Starting export process...")
         stats = app.process()
 
-        print("\n--- Export Summary ---")
-        print(f"Clippings File: {clippings_file}")
-        print(f"Total Clippings Processed: {stats.total_processed}")
-        print(f"New Highlights Sent to Readwise: {stats.new_sent}")
-        print(f"Duplicate Highlights Skipped: {stats.duplicates_skipped}")
-        if stats.failed_to_send > 0:
-            print(f"[bold red]Highlights Failed to Send: {stats.failed_to_send}[/bold red]", file=sys.stderr)
-            sys.exit(1)  # Exit with error if sends failed
-        else:
-            print("All new highlights sent successfully!")
+        _print_export_summary(stats, clippings_file)
 
     except FileNotFoundError as e:
         logger.critical("Error: %s", e)
@@ -152,10 +143,189 @@ def handle_export(args: argparse.Namespace) -> None:
             app.close_db()
 
 
-# --- Placeholder functions for other commands ---
-def handle_configure(_: argparse.Namespace) -> None:
-    logger.warning("'configure' command is not implemented yet.")
-    print("'configure' command is not implemented yet.")
+def _get_export_token(args: argparse.Namespace) -> str:
+    """Get Readwise token for export command."""
+    readwise_token = get_readwise_token_cli(args)
+    if not readwise_token:
+        logger.critical(
+            "Readwise API token not provided. Set it using the --api-token flag, the %s environment variable, "
+            "or by running 'kindle2readwise config token'.",
+            READWISE_TOKEN_ENV_VAR,
+        )
+        sys.exit(1)
+    return readwise_token
+
+
+def _get_export_clippings_file(args: argparse.Namespace) -> Path:
+    """Get clippings file path for export command."""
+    clippings_file_path = Path(args.file)
+    if not clippings_file_path.is_absolute():
+        clippings_file_path = Path.cwd() / clippings_file_path
+    return clippings_file_path.resolve()
+
+
+def _get_export_db_path(args: argparse.Namespace) -> Path:
+    """Get database path for export command."""
+    db_path = args.db_path
+    if not db_path:
+        db_path = get_config_value("database_path", DEFAULT_DB_PATH)
+    return Path(db_path).resolve()
+
+
+def _check_export_options(args: argparse.Namespace) -> None:
+    """Check export command options."""
+    if args.force:
+        logger.warning("Ignoring --force option (not implemented yet).")
+    if args.dry_run:
+        logger.warning("Ignoring --dry-run option (not implemented yet).")
+    if args.output:
+        logger.warning("Ignoring --output option (not implemented yet).")
+
+
+def _print_export_summary(stats, clippings_file: Path) -> None:
+    """Print export summary and handle exit codes."""
+    print("\n--- Export Summary ---")
+    print(f"Clippings File: {clippings_file}")
+    print(f"Total Clippings Processed: {stats.total_processed}")
+    print(f"New Highlights Sent to Readwise: {stats.new_sent}")
+    print(f"Duplicate Highlights Skipped: {stats.duplicates_skipped}")
+    if stats.failed_to_send > 0:
+        print(f"[bold red]Highlights Failed to Send: {stats.failed_to_send}[/bold red]", file=sys.stderr)
+        sys.exit(1)  # Exit with error if sends failed
+    else:
+        print("All new highlights sent successfully!")
+
+
+def handle_configure(args: argparse.Namespace) -> None:
+    """Handle the 'config' command and its subcommands."""
+    if not hasattr(args, "config_command") or not args.config_command:
+        # Default to 'show' if no subcommand specified
+        args.config_command = "show"
+
+    if args.config_command == "show":
+        handle_config_show(args)
+    elif args.config_command == "token":
+        handle_config_token(args)
+    elif args.config_command == "set":
+        handle_config_set(args)
+    elif args.config_command == "paths":
+        handle_config_paths(args)
+    else:
+        logger.error(f"Unknown config subcommand: {args.config_command}")
+        sys.exit(1)
+
+
+def handle_config_show(_: argparse.Namespace) -> None:
+    """Show current configuration."""
+    logger.info("Showing current configuration")
+    config = list_config()
+
+    print("\n--- Current Configuration ---")
+    for key, value in config.items():
+        print(f"{key}: {value}")
+
+    print(f"\nConfiguration directory: {get_config_dir()}")
+    print(f"Data directory: {get_data_dir()}")
+
+    if is_configured():
+        print("\nApplication is properly configured.")
+    else:
+        print("\nWARNING: Application is not fully configured.")
+        if not get_readwise_token():
+            print("Missing Readwise API token. Set it with 'kindle2readwise config token'.")
+
+
+def handle_config_token(args: argparse.Namespace) -> None:
+    """Configure the Readwise API token."""
+    if args.token:
+        # Set the token from the command line argument
+        token = args.token
+        if set_readwise_token(token):
+            logger.info("Readwise API token successfully saved.")
+            print(f"Readwise API token {mask_token(token)} successfully saved.")
+        else:
+            logger.error("Failed to save Readwise API token.")
+            print("Failed to save Readwise API token.")
+            sys.exit(1)
+    else:
+        # Interactive mode - prompt for token
+        try:
+            import getpass
+
+            token = getpass.getpass("Enter your Readwise API token: ")
+            if not token:
+                print("No token provided. Operation cancelled.")
+                return
+
+            if set_readwise_token(token):
+                logger.info("Readwise API token successfully saved.")
+                print(f"Readwise API token {mask_token(token)} successfully saved.")
+            else:
+                logger.error("Failed to save Readwise API token.")
+                print("Failed to save Readwise API token.")
+                sys.exit(1)
+        except (KeyboardInterrupt, EOFError):
+            print("\nOperation cancelled.")
+            return
+
+
+def handle_config_set(args: argparse.Namespace) -> None:
+    """Set a configuration value."""
+    if not args.key or not args.value:
+        logger.error("Both key and value must be specified.")
+        print("Error: Both key and value must be specified.")
+        print("Usage: kindle2readwise config set KEY VALUE")
+        sys.exit(1)
+
+    # Validate key is a known configuration option
+    valid_keys = ["export_format", "auto_confirm", "log_level", "database_path"]
+    if args.key not in valid_keys:
+        logger.error(f"Unknown configuration key: {args.key}")
+        print(f"Error: Unknown configuration key: {args.key}")
+        print(f"Valid keys are: {', '.join(valid_keys)}")
+        sys.exit(1)
+
+    # Special handling for boolean values
+    if args.key == "auto_confirm":
+        if args.value.lower() in ("true", "yes", "1", "on"):
+            value = True
+        elif args.value.lower() in ("false", "no", "0", "off"):
+            value = False
+        else:
+            logger.error(f"Invalid boolean value for {args.key}: {args.value}")
+            print("Error: Invalid boolean value. Use 'true' or 'false'.")
+            sys.exit(1)
+    else:
+        value = args.value
+
+    if set_config_value(args.key, value):
+        logger.info(f"Configuration value set: {args.key} = {value}")
+        print(f"Configuration updated: {args.key} = {value}")
+    else:
+        logger.error(f"Failed to set configuration value: {args.key}")
+        print("Error: Failed to update configuration.")
+        sys.exit(1)
+
+
+def handle_config_paths(_: argparse.Namespace) -> None:
+    """Show configuration and data paths."""
+    print("\n--- Application Paths ---")
+    print(f"Configuration directory: {get_config_dir()}")
+    print(f"Data directory: {get_data_dir()}")
+    print(f"Database path: {get_config_value('database_path')}")
+
+    # Detect platform
+    system = sys.platform
+    if system.startswith("darwin"):
+        platform_name = "macOS"
+    elif system.startswith("win"):
+        platform_name = "Windows"
+    elif system.startswith("linux"):
+        platform_name = "Linux"
+    else:
+        platform_name = system
+
+    print(f"Detected platform: {platform_name}")
 
 
 def handle_history(_: argparse.Namespace) -> None:
@@ -198,52 +368,68 @@ def main() -> None:
         type=str,
         nargs="?",
         default=DEFAULT_CLIPPINGS_PATH,
-        help=f"Path to Kindle 'My Clippings.txt' file (default: {DEFAULT_CLIPPINGS_PATH})",
+        help=f"Path to the 'My Clippings.txt' file (default: {DEFAULT_CLIPPINGS_PATH})",
     )
     parser_export.add_argument(
-        "--api-token",
-        "-t",
+        "--api-token", "-t", type=str, help="Readwise API token (or use the READWISE_API_TOKEN environment variable)."
+    )
+    parser_export.add_argument(
+        "--db-path",
         type=str,
-        default=None,
-        help=f"Readwise API token (overrides {READWISE_TOKEN_ENV_VAR} env var and config file).",
+        help=f"Path to the SQLite database (default: from config or {DEFAULT_DB_PATH}).",
     )
+    parser_export.add_argument("--force", "-f", action="store_true", help="Force export of all highlights.")
     parser_export.add_argument(
-        "--db-path", type=str, default=None, help=f"Path to the SQLite database file (default: {DEFAULT_DB_PATH})"
+        "--dry-run", "-d", action="store_true", help="Simulate export without sending to Readwise."
     )
-    # TODO: Add other export options from spec (--force, --dry-run etc.)
-    parser_export.add_argument(
-        "--force", "-F", action="store_true", help="Force export, ignoring duplicates (not implemented)."
-    )
-    parser_export.add_argument(
-        "--dry-run", "-d", action="store_true", help="Parse but do not export (not implemented)."
-    )
-    parser_export.add_argument("--output", "-o", type=str, help="Save parsed highlights to file (not implemented).")
+    parser_export.add_argument("--output", "-o", type=str, help="Output highlights to a file instead of Readwise.")
     parser_export.set_defaults(func=handle_export)
 
-    # --- Configure Command (Placeholder) ---
-    parser_configure = subparsers.add_parser("configure", help="Manage application configuration (not implemented).")
-    # TODO: Add configure options
-    parser_configure.set_defaults(func=handle_configure)
+    # --- Config Command ---
+    parser_config = subparsers.add_parser("config", help="Configure the application")
+    config_subparsers = parser_config.add_subparsers(dest="config_command", help="Configuration commands")
 
-    # --- History Command (Placeholder) ---
-    parser_history = subparsers.add_parser("history", help="View past export sessions (not implemented).")
-    # TODO: Add history options
+    # Config show subcommand
+    parser_config_show = config_subparsers.add_parser("show", help="Show current configuration")
+    parser_config_show.set_defaults(func=handle_configure)
+
+    # Config token subcommand
+    parser_config_token = config_subparsers.add_parser("token", help="Set the Readwise API token")
+    parser_config_token.add_argument(
+        "token", nargs="?", type=str, help="The Readwise API token (omit for interactive prompt)"
+    )
+    parser_config_token.set_defaults(func=handle_configure)
+
+    # Config set subcommand
+    parser_config_set = config_subparsers.add_parser("set", help="Set a configuration value")
+    parser_config_set.add_argument("key", type=str, help="Configuration key to set")
+    parser_config_set.add_argument("value", type=str, help="Value to set")
+    parser_config_set.set_defaults(func=handle_configure)
+
+    # Config paths subcommand
+    parser_config_paths = config_subparsers.add_parser("paths", help="Show configuration and data paths")
+    parser_config_paths.set_defaults(func=handle_configure)
+
+    parser_config.set_defaults(func=handle_configure)
+
+    # --- History Command ---
+    parser_history = subparsers.add_parser("history", help="View export history")
     parser_history.set_defaults(func=handle_history)
 
+    # --- Version Command ---
+    parser_version = subparsers.add_parser("version", help="Show version information")
+    parser_version.set_defaults(func=handle_version)
+
+    # Parse arguments and call the appropriate handler
     args = parser.parse_args()
 
-    # --- Setup Logging ---
-    # Set up logging based on global args *before* calling command handlers
-    log_file_path = Path(args.log_file) if args.log_file else None
-    setup_logging(level=args.log_level, log_file=log_file_path)
+    # Set up logging
+    setup_logging(level=args.log_level, log_file=args.log_file)
 
-    logger.debug("Parsed arguments: %s", args)
-
-    # --- Execute Command ---
+    # Call the appropriate handler function
     if hasattr(args, "func"):
         args.func(args)
     else:
-        # Should not happen if subparsers are required
         parser.print_help()
         sys.exit(1)
 
