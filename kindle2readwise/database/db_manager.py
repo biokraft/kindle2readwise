@@ -198,13 +198,73 @@ class HighlightsDAO:
 
     def get_export_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """Retrieve the most recent export session records."""
+        # Ensure limit is an integer and not None
+        if limit is None:
+            limit = 10
+
         logger.debug("Fetching last %d export session records.", limit)
         try:
             history = list(self.db["export_sessions"].rows_where(order_by="start_time DESC", limit=limit))
             logger.debug("Retrieved %d export history records.", len(history))
             return history
-        except Exception:
-            logger.error("Failed to retrieve export history.", exc_info=True)
+        except Exception as e:
+            logger.error("Error retrieving export history: %s", e)
+            return []
+
+    def get_session_by_id(self, session_id: int) -> dict[str, Any] | None:
+        """Get a specific export session by ID.
+
+        Args:
+            session_id: ID of the export session
+
+        Returns:
+            Session record or None if not found
+        """
+        logger.debug("Looking up export session with ID %s", session_id)
+        try:
+            # Convert to int in case it's passed as a string
+            session_id = int(session_id)
+            return dict(self.db["export_sessions"].get(session_id))
+        except Exception as e:
+            logger.debug("Failed to get session with ID %s: %s", session_id, e)
+            return None
+
+    def get_highlights_by_session(self, session_id: int) -> list[dict[str, Any]]:
+        """Get highlights for a specific export session.
+
+        Args:
+            session_id: ID of the export session
+
+        Returns:
+            List of highlight records
+        """
+        # Get the session first to validate it exists
+        session = self.get_session_by_id(session_id)
+        if not session:
+            logger.debug("Session with ID %s not found", session_id)
+            return []
+
+        # Get the time range for this session
+        start_time = session.get("start_time")
+        end_time = session.get("end_time")
+
+        if not start_time or not end_time:
+            logger.debug("Session with ID %s has invalid time range", session_id)
+            return []
+
+        logger.debug("Finding highlights for session %s (time range: %s to %s)", session_id, start_time, end_time)
+
+        # Find highlights exported in this time range
+        try:
+            highlights = list(
+                self.db["highlights"].rows_where(
+                    "date_exported >= ? AND date_exported <= ?", [start_time, end_time], order_by="date_exported"
+                )
+            )
+            logger.debug("Found %d highlights for session %s", len(highlights), session_id)
+            return highlights
+        except Exception as e:
+            logger.error("Error fetching highlights for session %s: %s", session_id, e)
             return []
 
     # --- Migration Handling ---

@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from . import __version__
@@ -18,13 +19,19 @@ from .config import (
     set_readwise_token,
 )
 from .core import Kindle2Readwise
-from .database import DEFAULT_DB_PATH
+from .database import DEFAULT_DB_PATH, HighlightsDAO
 from .logging_config import setup_logging
 from .utils.credentials import mask_token
 
 # Environment variable for Readwise token (optional)
 READWISE_TOKEN_ENV_VAR = "READWISE_API_TOKEN"
 DEFAULT_CLIPPINGS_PATH = "My Clippings.txt"
+
+# Constants for formatting
+MAX_SOURCE_FILE_LENGTH = 30
+MAX_TITLE_LENGTH = 30
+MAX_AUTHOR_LENGTH = 20
+MAX_HIGHLIGHTS_PREVIEW = 10
 
 logger = logging.getLogger(__name__)
 
@@ -339,9 +346,252 @@ def handle_config_paths(_: argparse.Namespace) -> None:
     print(f"Detected platform: {platform_name}")
 
 
-def handle_history(_: argparse.Namespace) -> None:
-    logger.warning("'history' command is not implemented yet.")
-    print("'history' command is not implemented yet.")
+def handle_history(args: argparse.Namespace) -> None:
+    """Handle the 'history' command to display export history."""
+    logger.info("Starting 'history' command.")
+
+    # Get database path from config if not provided
+    db_path = get_config_value("database_path", DEFAULT_DB_PATH)
+
+    try:
+        # Initialize the DAO
+        dao = HighlightsDAO(db_path)
+
+        # Handle specific session details if requested
+        if hasattr(args, "session") and args.session:
+            _show_session_details(dao, args.session, args.format)
+            return
+
+        # Get export history with specified limit
+        limit = args.limit if hasattr(args, "limit") else 10
+        history = dao.get_export_history(limit=limit)
+
+        if not history:
+            print("No export history found.")
+            return
+
+        # Display based on format
+        if hasattr(args, "format") and args.format in ["json", "csv"]:
+            _export_history_formatted(history, args.format)
+        else:
+            _display_history_table(history, args.details if hasattr(args, "details") else False)
+
+    except Exception as e:
+        logger.error("Error retrieving export history: %s", e, exc_info=True)
+        print(f"Error retrieving export history: {e}")
+        sys.exit(1)
+
+
+def _display_history_table(history: list[dict], show_details: bool = False) -> None:
+    """Display export history in a formatted table."""
+    if not history:
+        return
+
+    # Print header
+    print("\n--- Export History ---")
+    print(f"{'ID':<5} {'Date':<20} {'Status':<10} {'Total':<8} {'New':<8} {'Dupes':<8} {'Source File':<30}")
+    print("-" * 90)
+
+    # Print each session
+    for session in history:
+        # Format the date for display
+        start_time = session.get("start_time", "")
+        if start_time:
+            try:
+                # Parse ISO format datetime and format for display
+                dt = datetime.fromisoformat(start_time)
+                formatted_date = dt.strftime("%Y-%m-%d %H:%M:%S")
+            except (ValueError, TypeError):
+                formatted_date = start_time
+        else:
+            formatted_date = "Unknown"
+
+        # Format source file (truncate if too long)
+        source_file = session.get("source_file", "")
+        if len(source_file) > MAX_SOURCE_FILE_LENGTH:
+            source_file = "..." + source_file[-27:]
+
+        # Print the row
+        print(
+            f"{session.get('id', 0):<5} "
+            f"{formatted_date:<20} "
+            f"{session.get('status', ''):<10} "
+            f"{session.get('highlights_total', 0):<8} "
+            f"{session.get('highlights_new', 0):<8} "
+            f"{session.get('highlights_dupe', 0):<8} "
+            f"{source_file:<30}"
+        )
+
+    # Print summary
+    total_highlights = sum(session.get("highlights_new", 0) for session in history)
+    print("-" * 90)
+    print(f"Total Exported: {total_highlights} highlights across {len(history)} sessions")
+
+    # Show additional details if requested
+    if show_details:
+        print("\n--- Detailed Information ---")
+        for session in history:
+            _show_session_details_text(session)
+
+
+def _show_session_details_text(session: dict) -> None:
+    """Display detailed information for a session in text format."""
+    # Get session fields with sensible defaults
+    session_id = session.get("id", "Unknown")
+    start_time = session.get("start_time", "Unknown")
+    end_time = session.get("end_time", "Unknown")
+    status = session.get("status", "Unknown")
+    total = session.get("highlights_total", 0)
+    new = session.get("highlights_new", 0)
+    dupes = session.get("highlights_dupe", 0)
+    source_file = session.get("source_file", "Unknown")
+
+    # Calculate duration if both times are available
+    duration = "Unknown"
+    if start_time != "Unknown" and end_time != "Unknown":
+        try:
+            start_dt = datetime.fromisoformat(start_time)
+            end_dt = datetime.fromisoformat(end_time)
+            duration = str(end_dt - start_dt)
+        except (ValueError, TypeError):
+            pass
+
+    print(f"\nSession ID: {session_id}")
+    print(f"Start Time: {start_time}")
+    print(f"End Time: {end_time}")
+    print(f"Duration: {duration}")
+    print(f"Status: {status}")
+    print(f"Source File: {source_file}")
+    print(f"Highlights Processed: {total}")
+    print(f"New Highlights: {new}")
+    print(f"Duplicate Highlights: {dupes}")
+
+
+def _show_session_details(dao: HighlightsDAO, session_id: int, format_type: str = "text") -> None:
+    """Show detailed information for a specific session."""
+    # Get the session details
+    session = dao.get_session_by_id(session_id)
+    if not session:
+        print(f"Session with ID {session_id} not found.")
+        return
+
+    # Get highlights for this session
+    highlights = dao.get_highlights_by_session(session_id)
+
+    # Format and display based on format type
+    if format_type == "json":
+        import json
+
+        session_data = {"session": session, "highlights": highlights}
+        print(json.dumps(session_data, indent=2, default=str))
+    elif format_type == "csv":
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write session info
+        writer.writerow(["Session Information"])
+        writer.writerow(["ID", "Start Time", "End Time", "Status", "Total", "New", "Duplicates"])
+        writer.writerow(
+            [
+                session.get("id"),
+                session.get("start_time"),
+                session.get("end_time"),
+                session.get("status"),
+                session.get("highlights_total"),
+                session.get("highlights_new"),
+                session.get("highlights_dupe"),
+            ]
+        )
+
+        # Write highlights
+        if highlights:
+            writer.writerow([])
+            writer.writerow(["Highlights"])
+            writer.writerow(["Title", "Author", "Text", "Location", "Date Highlighted", "Status"])
+            for h in highlights:
+                writer.writerow(
+                    [
+                        h.get("title"),
+                        h.get("author"),
+                        h.get("text"),
+                        h.get("location"),
+                        h.get("date_highlighted"),
+                        h.get("status"),
+                    ]
+                )
+
+        print(output.getvalue())
+    else:
+        # Text format
+        _show_session_details_text(session)
+
+        # Show highlight summary if available
+        if highlights:
+            print(f"\nHighlights in this session: {len(highlights)}")
+            print(f"{'Title':<30} {'Author':<20} {'Status':<10}")
+            print("-" * 70)
+
+            for h in highlights[:MAX_HIGHLIGHTS_PREVIEW]:  # Show only first 10 for brevity
+                title = h.get("title", "")
+                if len(title) > MAX_TITLE_LENGTH:
+                    title = title[:27] + "..."
+
+                author = h.get("author", "")
+                if len(author) > MAX_AUTHOR_LENGTH:
+                    author = author[:17] + "..."
+
+                print(f"{title:<30} {author:<20} {h.get('status', ''):<10}")
+
+            if len(highlights) > MAX_HIGHLIGHTS_PREVIEW:
+                print(f"... and {len(highlights) - MAX_HIGHLIGHTS_PREVIEW} more highlights")
+
+
+def _export_history_formatted(history: list[dict], format_type: str) -> None:
+    """Export history in the specified format (JSON or CSV)."""
+    if format_type == "json":
+        import json
+
+        print(json.dumps(history, indent=2, default=str))
+    elif format_type == "csv":
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow(
+            [
+                "ID",
+                "Start Time",
+                "End Time",
+                "Status",
+                "Total Highlights",
+                "New Highlights",
+                "Duplicate Highlights",
+                "Source File",
+            ]
+        )
+
+        # Write rows
+        for session in history:
+            writer.writerow(
+                [
+                    session.get("id"),
+                    session.get("start_time"),
+                    session.get("end_time"),
+                    session.get("status"),
+                    session.get("highlights_total"),
+                    session.get("highlights_new"),
+                    session.get("highlights_dupe"),
+                    session.get("source_file"),
+                ]
+            )
+
+        print(output.getvalue())
 
 
 def handle_version(_: argparse.Namespace) -> None:
@@ -425,6 +675,10 @@ def main() -> None:
 
     # --- History Command ---
     parser_history = subparsers.add_parser("history", help="View export history")
+    parser_history.add_argument("--session", type=str, help="Show details for a specific session")
+    parser_history.add_argument("--format", type=str, choices=["json", "csv"], help="Output format for history")
+    parser_history.add_argument("--details", action="store_true", help="Show detailed session details")
+    parser_history.add_argument("--limit", type=int, help="Limit the number of history entries to display")
     parser_history.set_defaults(func=handle_history)
 
     # --- Version Command ---

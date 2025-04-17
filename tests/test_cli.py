@@ -270,7 +270,7 @@ def test_cli_configure_placeholder(capsys):
 
 
 def test_cli_history_placeholder(capsys):
-    """Test that the history command shows as not implemented."""
-    run_cli(["history"], expect_exit_code=None)
+    """Test that the history command shows export history."""
+    run_cli(["history"], expect_exit_code=0)
     captured = capsys.readouterr()
-    assert "'history' command is not implemented yet." in captured.out
+    assert "--- Export History ---" in captured.out

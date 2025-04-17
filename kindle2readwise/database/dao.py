@@ -179,12 +179,13 @@ class HighlightsDAO:
         }
         return self.db["export_sessions"].insert(session_data).last_pk
 
-    def complete_export_session(self, session_id: int, stats: dict[str, int]) -> None:
+    def complete_export_session(self, session_id: int, stats: dict[str, int], status: str = "completed") -> None:
         """Complete an export session with results.
 
         Args:
             session_id: ID of the export session
             stats: Dictionary with export statistics
+            status: Session status (completed, error, partial)
         """
         self.db["export_sessions"].update(
             session_id,
@@ -193,7 +194,7 @@ class HighlightsDAO:
                 "highlights_total": stats.get("total", 0),
                 "highlights_new": stats.get("new", 0),
                 "highlights_dupe": stats.get("dupe", 0),
-                "status": "completed",
+                "status": status,
             },
         )
 
@@ -207,6 +208,51 @@ class HighlightsDAO:
             List of export session records
         """
         return list(self.db["export_sessions"].rows_where(order_by="start_time desc", limit=limit))
+
+    def get_session_by_id(self, session_id: int) -> dict[str, Any] | None:
+        """Get a specific export session by ID.
+
+        Args:
+            session_id: ID of the export session
+
+        Returns:
+            Session record or None if not found
+        """
+        try:
+            return dict(self.db["export_sessions"].get(session_id))
+        except Exception:
+            logger.debug(f"Session with ID {session_id} not found")
+            return None
+
+    def get_highlights_by_session(self, session_id: int) -> list[dict[str, Any]]:
+        """Get highlights for a specific export session.
+
+        Args:
+            session_id: ID of the export session
+
+        Returns:
+            List of highlight records
+        """
+        # Get the session first to check if it exists
+        session = self.get_session_by_id(session_id)
+        if not session:
+            return []
+
+        # Find start and end times for the session
+        start_time = session.get("start_time")
+        end_time = session.get("end_time")
+
+        if not start_time or not end_time:
+            return []
+
+        # Get highlights exported during this session's timeframe
+        return list(
+            self.db["highlights"].rows_where(
+                "date_exported >= ? AND date_exported <= ?",
+                [start_time, end_time],
+                order_by="date_exported",
+            )
+        )
 
     def get_highlight_count(self) -> int:
         """Get the total number of highlights in the database.
