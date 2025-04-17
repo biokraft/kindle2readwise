@@ -17,7 +17,7 @@ DEFAULT_LOG_FILE = DEFAULT_LOG_DIR / "kindle2readwise.log"
 
 
 def setup_logging(
-    level: LogLevel = "INFO",
+    level: LogLevel = "WARNING",
     log_file: Path = DEFAULT_LOG_FILE,
     max_bytes: int = 10 * 1024 * 1024,  # 10 MB
     backup_count: int = 5,
