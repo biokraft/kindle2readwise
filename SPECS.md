@@ -62,25 +62,45 @@ The application follows these design principles:
 - Add command-line options for configuration settings (Done)
 - Support platform-specific configuration directories (Done)
 
-### Phase 4: Export History
-- Implement tracking of export sessions
-- Add ability to view past export statistics
-- Create summary reports of exported highlights
-- Allow review of previously exported content
+### Phase 4: Export History (Completed)
+- Implement tracking of export sessions (Done)
+- Add ability to view past export statistics (Done)
+- Create summary reports of exported highlights (Done)
+- Allow review of previously exported content (Done)
 
-### Phase 5: Kindle Device Detection
+### Phase 5: Enhanced Database Management
+- Add command to list highlights stored in the local database (with filtering)
+- Implement functionality to delete highlights/books from the local database
+- Provide more detailed summary reports (extending Phase 4)
+
+### Phase 6: Kindle Device Detection
 - Implement automatic Kindle device detection when connected
 - Support cross-platform device detection (Windows, macOS, Linux)
 
-### Phase 6: Notification System
+### Phase 7: Notification System
 - Add OS-dependent notification system for export events
 - Implement OS notification system for error reporting
 - Create user-configurable notification preferences
 
-### Phase 7: Automated Export Controls
+### Phase 8: Automated Export Controls
 - Create configurable user confirmation options before export
 - Allow users to enable/disable automated export via CLI options
 - Implement scheduled exports based on user preferences
+
+### Phase 9: Interactive Export Review
+- Implement interactive mode for reviewing new highlights before export
+- Allow users to selectively skip or tag items during review
+
+### Phase 10: Advanced Highlight Processing
+- Implement smarter duplicate detection (e.g., fuzzy matching)
+- Detect and handle cases where a highlight might have been updated on the Kindle
+
+### Phase 11: Reliability & Error Handling
+- Implement more robust error handling and recovery
+- Add retries for failed Readwise API calls
+
+### Phase 12: Database Maintainability
+- Add database migration support for future schema changes
 
 ## Global Installation
 
