@@ -73,9 +73,9 @@ The application follows these design principles:
 - Implement functionality to delete highlights/books from the local database (Done)
 - Provide more detailed summary reports extending Phase 4 (Done)
 
-### Phase 6: Kindle Device Detection
-- Implement automatic Kindle device detection when connected
-- Support cross-platform device detection (Windows, macOS, Linux)
+### Phase 6: Kindle Device Detection (Completed)
+- Implement automatic Kindle device detection when connected (Done)
+- Support cross-platform device detection (Windows, macOS, Linux) (Done)
 
 ### Phase 7: Notification System
 - Add OS-dependent notification system for export events

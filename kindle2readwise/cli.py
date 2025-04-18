@@ -24,6 +24,7 @@ from .core import Kindle2Readwise
 from .database import DEFAULT_DB_PATH, HighlightsDAO
 from .logging_config import setup_logging
 from .utils.credentials import mask_token
+from .utils.device_detection import detect_kindle_devices, find_kindle_clippings, format_device_list
 
 # Environment variable for Readwise token (optional)
 READWISE_TOKEN_ENV_VAR = "READWISE_API_TOKEN"
@@ -51,27 +52,19 @@ def get_default_clippings_path() -> str | None:
     Returns:
         Path to the clippings file if found, None otherwise
     """
-    # Common paths where Kindle gets mounted
-    common_paths = [
-        # macOS
-        Path("/Volumes/Kindle/documents/My Clippings.txt"),
-        # Linux
-        Path("/media/Kindle/documents/My Clippings.txt"),
-        # Windows
-        Path("E:/documents/My Clippings.txt"),
-        Path("F:/documents/My Clippings.txt"),
-    ]
+    # First try to automatically detect connected Kindle devices
+    kindle_clippings = find_kindle_clippings()
+    if kindle_clippings:
+        logger.info("Automatically detected Kindle clippings file: %s", kindle_clippings)
+        return str(kindle_clippings)
 
-    # Check current directory first
+    # Check current directory as fallback
     current_dir = Path.cwd() / "My Clippings.txt"
     if current_dir.exists():
+        logger.debug("Found clippings file in current directory: %s", current_dir)
         return str(current_dir)
 
-    # Check common paths
-    for path in common_paths:
-        if path.exists():
-            return str(path)
-
+    logger.debug("No Kindle clippings file found automatically")
     return None
 
 
@@ -120,6 +113,11 @@ def get_readwise_token_cli(args: argparse.Namespace) -> str | None:
 def handle_export(args: argparse.Namespace) -> None:
     """Handle the 'export' command."""
     logger.info("Starting 'export' command.")
+
+    # If --devices flag is provided, list devices and exit
+    if hasattr(args, "devices") and args.devices:
+        handle_devices(args)
+        return
 
     # Setup part
     readwise_token = _get_export_token(args)
@@ -175,9 +173,34 @@ def _get_export_token(args: argparse.Namespace) -> str:
 
 def _get_export_clippings_file(args: argparse.Namespace) -> Path:
     """Get clippings file path for export command."""
+    # If an explicit file was provided and it exists, use it directly
+    if args.file != DEFAULT_CLIPPINGS_PATH and Path(args.file).exists():
+        clippings_file_path = Path(args.file)
+        if not clippings_file_path.is_absolute():
+            clippings_file_path = Path.cwd() / clippings_file_path
+        logger.debug("Using explicitly provided clippings file: %s", clippings_file_path)
+        return clippings_file_path.resolve()
+
+    # If no explicit file was provided or the default doesn't exist in current dir,
+    # try to automatically detect Kindle device
+    if args.file == DEFAULT_CLIPPINGS_PATH:
+        default_path = get_default_clippings_path()
+        if default_path:
+            logger.info("Using automatically detected Kindle clippings file: %s", default_path)
+            return Path(default_path).resolve()
+
+    # If we get here, we'll use the provided file path even if it doesn't exist
+    # (the validation will later catch the issue)
     clippings_file_path = Path(args.file)
     if not clippings_file_path.is_absolute():
         clippings_file_path = Path.cwd() / clippings_file_path
+
+    if not clippings_file_path.exists():
+        logger.warning(
+            "Clippings file not found: %s. Make sure your Kindle is connected or provide the correct path.",
+            clippings_file_path,
+        )
+
     return clippings_file_path.resolve()
 
 
@@ -604,8 +627,19 @@ def _export_history_formatted(history: list[dict], format_type: str) -> None:
 
 
 def handle_version(_: argparse.Namespace) -> None:
-    print(f"kindle2readwise version {__version__}")
-    # Add Python/Platform info later if needed
+    """Show version information."""
+    print(f"kindle2readwise v{__version__}")
+    print(f"Python: {sys.version.split()[0]}")
+    print(f"Platform: {sys.platform}")
+
+
+def handle_devices(_: argparse.Namespace) -> None:
+    """List detected Kindle devices."""
+    logger.info("Detecting Kindle devices...")
+    devices = detect_kindle_devices()
+
+    formatted_output = format_device_list(devices)
+    print(formatted_output)
 
 
 def handle_highlights(args: argparse.Namespace) -> None:
@@ -868,6 +902,7 @@ def _setup_export_command(subparsers):
         "--dry-run", "-d", action="store_true", help="Simulate export without sending to Readwise."
     )
     parser_export.add_argument("--output", "-o", type=str, help="Output highlights to a file instead of Readwise.")
+    parser_export.add_argument("--devices", action="store_true", help="List detected Kindle devices and exit.")
     parser_export.set_defaults(func=handle_export)
 
 
