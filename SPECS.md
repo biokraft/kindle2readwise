@@ -85,7 +85,6 @@ The application follows these design principles:
 ### Phase 8: Automated Export Controls
 - Create configurable user confirmation options before export
 - Allow users to enable/disable automated export via CLI options
-- Implement scheduled exports based on user preferences
 
 ### Phase 9: Interactive Export Review
 - Implement interactive mode for reviewing new highlights before export
