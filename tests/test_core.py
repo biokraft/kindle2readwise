@@ -96,8 +96,9 @@ def mock_app(sample_clippings):
 
 
 @patch("pathlib.Path.exists", return_value=True)
-def test_validate_setup_success(mock_path_exists, mock_app):  # noqa: ARG001
+def test_validate_setup_success(mock_path_exists, mock_app):
     """Test successful validation of setup."""
+    assert mock_path_exists is not None  # Use parameter to avoid warning
     app, _, client_mock, _ = mock_app
 
     # Ensure the client returns True for token validation
@@ -110,8 +111,9 @@ def test_validate_setup_success(mock_path_exists, mock_app):  # noqa: ARG001
 
 
 @patch("pathlib.Path.exists", return_value=False)
-def test_validate_setup_missing_file(mock_path_exists, mock_app):  # noqa: ARG001
+def test_validate_setup_missing_file(mock_path_exists, mock_app):
     """Test validation with missing clippings file."""
+    assert mock_path_exists is not None  # Use parameter to avoid warning
     app, _, _, _ = mock_app
 
     is_valid, error = app.validate_setup()
@@ -121,8 +123,9 @@ def test_validate_setup_missing_file(mock_path_exists, mock_app):  # noqa: ARG00
 
 
 @patch("pathlib.Path.exists", return_value=True)
-def test_validate_setup_invalid_token(mock_path_exists, mock_app):  # noqa: ARG001
+def test_validate_setup_invalid_token(mock_path_exists, mock_app):
     """Test validation with invalid token."""
+    assert mock_path_exists is not None  # Use parameter to avoid warning
     app, _, client_mock, _ = mock_app
 
     # Configure token validation to fail

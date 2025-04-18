@@ -1,6 +1,8 @@
 """Command-line interface for kindle2readwise."""
 
 import argparse
+import csv
+import json
 import logging
 import os
 import sys
@@ -32,6 +34,13 @@ MAX_SOURCE_FILE_LENGTH = 30
 MAX_TITLE_LENGTH = 30
 MAX_AUTHOR_LENGTH = 20
 MAX_HIGHLIGHTS_PREVIEW = 10
+
+# Constants for UI display formatting
+BOOK_TITLE_MAX_LENGTH = 37
+BOOK_TITLE_TRUNCATE_LENGTH = 34
+BOOK_AUTHOR_MAX_LENGTH = 27
+BOOK_AUTHOR_TRUNCATE_LENGTH = 24
+TABLE_WIDTH = 82
 
 logger = logging.getLogger(__name__)
 
@@ -599,13 +608,228 @@ def handle_version(_: argparse.Namespace) -> None:
     # Add Python/Platform info later if needed
 
 
-def main() -> None:
-    """Main entry point for the CLI application."""
-    parser = argparse.ArgumentParser(
-        description="Export Kindle clippings ('My Clippings.txt') to Readwise.", prog="kindle2readwise"
+def handle_highlights(args: argparse.Namespace) -> None:
+    """Handle the 'highlights' command to list and search highlights."""
+    logger.info("Starting 'highlights' command.")
+
+    # Get database path from config if not provided
+    db_path = get_config_value("database_path", DEFAULT_DB_PATH)
+
+    try:
+        # Initialize the DAO
+        dao = HighlightsDAO(db_path)
+
+        # Process different sub-commands
+        if hasattr(args, "highlights_command"):
+            if args.highlights_command == "list":
+                _handle_highlights_list(dao, args)
+            elif args.highlights_command == "books":
+                _handle_highlights_books(dao, args)
+            elif args.highlights_command == "delete":
+                _handle_highlights_delete(dao, args)
+            else:
+                print("Unknown subcommand. Use 'kindle2readwise highlights --help' for usage information.")
+        else:
+            # Default: list highlights with no filters
+            _handle_highlights_list(dao, args)
+
+    except Exception as e:
+        logger.error("Error processing highlights command: %s", e, exc_info=True)
+        print(f"Error processing highlights command: {e}")
+        sys.exit(1)
+
+
+def _handle_highlights_list(dao: HighlightsDAO, args: argparse.Namespace) -> None:
+    """Handle listing highlights with optional filters."""
+    # Extract filter parameters
+    title = getattr(args, "title", None)
+    author = getattr(args, "author", None)
+    text = getattr(args, "text", None)
+    limit = getattr(args, "limit", 20)
+    offset = getattr(args, "offset", 0)
+    sort_by = getattr(args, "sort", "date_exported")
+    sort_dir = getattr(args, "order", "desc")
+    output_format = getattr(args, "format", None)
+
+    # Get the count first for the summary info
+    count = dao.get_highlight_count_with_filters(title=title, author=author, text_search=text)
+
+    # Get filtered highlights
+    highlights = dao.get_highlights(
+        title=title, author=author, text_search=text, limit=limit, offset=offset, sort_by=sort_by, sort_dir=sort_dir
     )
 
-    # --- Global Options ---
+    if not highlights:
+        print("No highlights found with the specified filters.")
+        return
+
+    # Handle different output formats
+    if output_format == "json":
+        _output_highlights_json(highlights, count, limit, offset)
+    elif output_format == "csv":
+        _output_highlights_csv(highlights)
+    else:
+        _output_highlights_text(highlights, count, limit, offset)
+
+
+def _output_highlights_text(highlights: list[dict], count: int, limit: int, offset: int) -> None:
+    """Display highlights in formatted text."""
+    # Print summary
+    print(f"\nFound {count} highlights total")
+    if count > limit:
+        print(f"Displaying {len(highlights)} highlights (offset: {offset}, limit: {limit})")
+
+    print("\n" + "=" * 80)
+
+    # Print each highlight
+    for h in highlights:
+        title = h.get("title", "Unknown Title")
+        author = h.get("author", "Unknown Author")
+        text = h.get("text", "")
+        date_highlighted = h.get("date_highlighted", "Unknown")
+        location = h.get("location", "Unknown")
+
+        # Format date if available
+        if date_highlighted and date_highlighted != "Unknown":
+            try:
+                dt = datetime.fromisoformat(date_highlighted)
+                date_highlighted = dt.strftime("%Y-%m-%d %H:%M:%S")
+            except (ValueError, TypeError):
+                pass
+
+        print(f"Title: {title}")
+        print(f"Author: {author}")
+        print(f"Location: {location}")
+        print(f"Date: {date_highlighted}")
+        print(f"Text: {text}")
+        print("-" * 80)
+
+
+def _output_highlights_json(highlights: list[dict], count: int, limit: int, offset: int) -> None:
+    """Output highlights as JSON."""
+    import json
+
+    result = {"count": count, "limit": limit, "offset": offset, "highlights": highlights}
+
+    print(json.dumps(result, indent=2, default=str))
+
+
+def _output_highlights_csv(highlights: list[dict]) -> None:
+    """Output highlights as CSV."""
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(["ID", "Title", "Author", "Text", "Location", "Date Highlighted", "Date Exported"])
+
+    # Write data
+    for h in highlights:
+        writer.writerow(
+            [
+                h.get("id", ""),
+                h.get("title", ""),
+                h.get("author", ""),
+                h.get("text", ""),
+                h.get("location", ""),
+                h.get("date_highlighted", ""),
+                h.get("date_exported", ""),
+            ]
+        )
+
+    print(output.getvalue())
+
+
+def _handle_highlights_books(dao: HighlightsDAO, args: argparse.Namespace) -> None:
+    """Handle displaying all books with highlight counts."""
+    books = dao.get_books()
+
+    # Format output based on requested format
+    format_type = getattr(args, "format", "text")
+    if format_type == "json":
+        print(json.dumps(books, indent=2))
+        return
+    if format_type == "csv":
+        writer = csv.DictWriter(sys.stdout, fieldnames=["title", "author", "highlight_count"])
+        writer.writeheader()
+        writer.writerows(books)
+        return
+
+    # Default text output
+    print("\n--- Books in Database ---")
+    print(f"{'Title':<40} {'Author':<30} {'Highlights':<10}")
+    print("-" * TABLE_WIDTH)
+
+    for book in books:
+        title = book.get("title", "Unknown")
+        if len(title) > BOOK_TITLE_MAX_LENGTH:
+            title = title[:BOOK_TITLE_TRUNCATE_LENGTH] + "..."
+
+        author = book.get("author", "Unknown")
+        if len(author) > BOOK_AUTHOR_MAX_LENGTH:
+            author = author[:BOOK_AUTHOR_TRUNCATE_LENGTH] + "..."
+
+        count = book.get("highlight_count", 0)
+
+        print(f"{title:<40} {author:<30} {count:<10}")
+
+    print("-" * TABLE_WIDTH)
+    print(f"Total: {len(books)} books, {sum(book.get('highlight_count', 0) for book in books)} highlights")
+
+
+def _handle_highlights_delete(dao: HighlightsDAO, args: argparse.Namespace) -> None:
+    """Handle deleting highlights."""
+    # Check which delete option was specified
+    if hasattr(args, "id") and args.id:
+        # Delete a single highlight by ID
+        highlight_id = args.id
+        if not args.force:
+            confirm = input(f"Are you sure you want to delete highlight with ID {highlight_id}? (y/N): ")
+            if confirm.lower() != "y":
+                print("Deletion cancelled.")
+                return
+
+        success = dao.delete_highlight(highlight_id)
+        if success:
+            print(f"Successfully deleted highlight with ID {highlight_id}.")
+        else:
+            print(f"Failed to delete highlight with ID {highlight_id}.")
+
+    elif hasattr(args, "book") and args.book:
+        # Delete highlights for a specific book
+        title = args.book
+        author = args.author if hasattr(args, "author") else None
+
+        # Get count of highlights to be deleted
+        count = dao.get_highlight_count_with_filters(title=title, author=author)
+
+        if count == 0:
+            print(f"No highlights found for book '{title}'{f' by {author}' if author else ''}.")
+            return
+
+        if not args.force:
+            confirm = input(
+                f"Are you sure you want to delete {count} highlights for '{title}'"
+                f"{f' by {author}' if author else ''}? (y/N): "
+            )
+            if confirm.lower() != "y":
+                print("Deletion cancelled.")
+                return
+
+        deleted = dao.delete_highlights_by_book(title, author)
+        if deleted > 0:
+            print(f"Successfully deleted {deleted} highlights.")
+        else:
+            print("No highlights were deleted.")
+
+    else:
+        print("No delete options specified. Use --id or --book to specify what to delete.")
+
+
+def _setup_global_options(parser):
+    """Set up global options for the CLI."""
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}", help="Show program's version number and exit."
     )
@@ -620,9 +844,9 @@ def main() -> None:
         "--log-file", type=str, default=None, help="Log output to a specified file in addition to the console."
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
-    # --- Export Command ---
+def _setup_export_command(subparsers):
+    """Set up the export command and its options."""
     parser_export = subparsers.add_parser("export", help="Export Kindle highlights to Readwise")
     parser_export.add_argument(
         "file",
@@ -646,7 +870,9 @@ def main() -> None:
     parser_export.add_argument("--output", "-o", type=str, help="Output highlights to a file instead of Readwise.")
     parser_export.set_defaults(func=handle_export)
 
-    # --- Config Command ---
+
+def _setup_config_command(subparsers):
+    """Set up the config command and its subcommands."""
     parser_config = subparsers.add_parser("config", help="Configure the application")
     config_subparsers = parser_config.add_subparsers(dest="config_command", help="Configuration commands")
 
@@ -673,7 +899,9 @@ def main() -> None:
 
     parser_config.set_defaults(func=handle_configure)
 
-    # --- History Command ---
+
+def _setup_history_command(subparsers):
+    """Set up the history command and its options."""
     parser_history = subparsers.add_parser("history", help="View export history")
     parser_history.add_argument("--session", type=str, help="Show details for a specific session")
     parser_history.add_argument("--format", type=str, choices=["json", "csv"], help="Output format for history")
@@ -681,25 +909,95 @@ def main() -> None:
     parser_history.add_argument("--limit", type=int, help="Limit the number of history entries to display")
     parser_history.set_defaults(func=handle_history)
 
+
+def _setup_highlights_command(subparsers):
+    """Set up the highlights command and its subcommands."""
+    parser_highlights = subparsers.add_parser("highlights", help="Manage stored highlights")
+    highlights_subparsers = parser_highlights.add_subparsers(
+        dest="highlights_command", help="Highlight management commands"
+    )
+
+    # Highlights list subcommand
+    parser_highlights_list = highlights_subparsers.add_parser("list", help="List and search highlights in the database")
+    parser_highlights_list.add_argument("--title", type=str, help="Filter by book title (partial match)")
+    parser_highlights_list.add_argument("--author", type=str, help="Filter by author (partial match)")
+    parser_highlights_list.add_argument("--text", type=str, help="Search in highlight text (partial match)")
+    parser_highlights_list.add_argument("--limit", type=int, default=20, help="Maximum number of results (default: 20)")
+    parser_highlights_list.add_argument(
+        "--offset", type=int, default=0, help="Results offset for pagination (default: 0)"
+    )
+    parser_highlights_list.add_argument(
+        "--sort",
+        type=str,
+        default="date_exported",
+        choices=["date_exported", "date_highlighted", "title", "author"],
+        help="Field to sort by (default: date_exported)",
+    )
+    parser_highlights_list.add_argument(
+        "--order", type=str, default="desc", choices=["asc", "desc"], help="Sort direction (default: desc)"
+    )
+    parser_highlights_list.add_argument(
+        "--format", type=str, choices=["text", "json", "csv"], help="Output format (default: text)"
+    )
+
+    # Highlights books subcommand
+    parser_highlights_books = highlights_subparsers.add_parser("books", help="List all books with highlight counts")
+    parser_highlights_books.add_argument(
+        "--format", type=str, choices=["text", "json", "csv"], help="Output format (default: text)"
+    )
+
+    # Highlights delete subcommand
+    parser_highlights_delete = highlights_subparsers.add_parser("delete", help="Delete highlights or books")
+    delete_group = parser_highlights_delete.add_mutually_exclusive_group(required=True)
+    delete_group.add_argument("--id", type=int, help="Delete a single highlight by ID")
+    delete_group.add_argument("--book", type=str, help="Delete all highlights for a specific book")
+    parser_highlights_delete.add_argument("--author", type=str, help="Author name (when deleting by book)")
+    parser_highlights_delete.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
+
+    # Set default handler for the main highlights command
+    parser_highlights.set_defaults(func=handle_highlights)
+
+
+def main() -> None:
+    """Main entry point for the CLI application."""
+    parser = argparse.ArgumentParser(
+        description="Export Kindle clippings ('My Clippings.txt') to Readwise.", prog="kindle2readwise"
+    )
+
+    # --- Global Options ---
+    _setup_global_options(parser)
+
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+
+    # --- Export Command ---
+    _setup_export_command(subparsers)
+
+    # --- Config Command ---
+    _setup_config_command(subparsers)
+
+    # --- History Command ---
+    _setup_history_command(subparsers)
+
+    # --- Highlights Command ---
+    _setup_highlights_command(subparsers)
+
     # --- Version Command ---
     parser_version = subparsers.add_parser("version", help="Show version information")
     parser_version.set_defaults(func=handle_version)
 
-    # Parse arguments and call the appropriate handler
+    # Parse arguments and set up logging
     args = parser.parse_args()
 
-    # Set up logging using config value if command line arg not provided
-    if args.log_level == "INFO":  # This is the default value from argparse
-        config_log_level = get_config_value("log_level", "INFO")
-        args.log_level = config_log_level
+    # Configure logging based on arguments
+    # Convert numeric log level back to string name for setup_logging
+    level_name = args.log_level  # This already has the name as a string
+    setup_logging(level=level_name, log_file=args.log_file)
 
-    setup_logging(level=args.log_level, log_file=args.log_file)
-
-    # Call the appropriate handler function
-    if hasattr(args, "func"):
+    # Call the appropriate function
+    try:
         args.func(args)
-    else:
-        parser.print_help()
+    except Exception as e:
+        logger.error("Unhandled exception: %s", e, exc_info=True)
         sys.exit(1)
 
 

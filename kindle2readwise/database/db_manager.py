@@ -7,6 +7,7 @@ from typing import Any
 import sqlite_utils
 
 from ..parser.models import KindleClipping
+from .models import HighlightFilters
 
 logger = logging.getLogger(__name__)
 
@@ -87,33 +88,13 @@ class HighlightsDAO:
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
-        """Ensure required indexes exist on the tables."""
-        indexes_to_create = {
-            "highlights": [
-                ("idx_highlights_hash", ["highlight_hash"], True),  # Unique index
-                ("idx_highlights_export_date", ["date_exported"], False),
-                ("idx_highlights_title_author", ["title", "author"], False),
-            ],
-            "export_sessions": [("idx_export_sessions_start_time", ["start_time"], False)],
-        }
-
-        for table_name, indexes in indexes_to_create.items():
-            if table_name in self.db.table_names():
-                existing_indexes = {idx.name for idx in self.db[table_name].indexes}
-                for index_name, columns, unique in indexes:
-                    if index_name not in existing_indexes:
-                        logger.debug(
-                            "Creating index '%s' on table '%s' for columns %s.", index_name, table_name, columns
-                        )
-                        try:
-                            self.db[table_name].create_index(columns, index_name, unique=unique, if_not_exists=True)
-                            logger.info("Successfully created index '%s' on table '%s'.", index_name, table_name)
-                        except Exception as e:
-                            logger.error(
-                                "Failed to create index '%s' on table '%s'. Error: %s", index_name, table_name, e
-                            )
-                    else:
-                        logger.debug("Index '%s' already exists on table '%s'.", index_name, table_name)
+        """Create necessary indexes if they don't exist."""
+        # For highlights table
+        if "highlights" in self.db.table_names():
+            self.db["highlights"].create_index(["highlight_hash"], unique=True, if_not_exists=True)
+            self.db["highlights"].create_index(["date_exported"], if_not_exists=True)
+            self.db["highlights"].create_index(["title", "author"], if_not_exists=True)
+            logger.debug("Ensured all required indexes exist on 'highlights' table")
 
     def highlight_exists(self, title: str, author: str | None, text: str) -> bool:
         """Check if a highlight with the same content already exists in the database."""
@@ -158,75 +139,89 @@ class HighlightsDAO:
             )
 
     def start_export_session(self, source_file: str) -> int:
-        """Record the start of an export session and return its ID."""
-        logger.info("Starting new export session for file: %s", source_file)
+        """Record the start of an export session and return the session ID.
+
+        Args:
+            source_file: Path to the source clippings file
+
+        Returns:
+            ID of the created session
+        """
+        logger.debug("Starting new export session for source file: %s", source_file)
         session_data = {
             "start_time": datetime.now().isoformat(),
             "source_file": source_file,
-            "status": "started",
-            # Initialize counts to 0 or None
+            "status": "in_progress",
             "highlights_total": 0,
             "highlights_new": 0,
             "highlights_dupe": 0,
         }
+
         try:
-            result = self.db["export_sessions"].insert(session_data)
-            session_id = result.last_pk
-            logger.info("Export session started with ID: %d", session_id)
-            return session_id
-        except Exception:
-            logger.error("Failed to start export session for file: %s", source_file, exc_info=True)
-            raise  # Re-raise the exception as session start is critical
+            last_pk = self.db["export_sessions"].insert(session_data).last_pk
+            logger.info("Created export session with ID: %s", last_pk)
+            return last_pk
+        except Exception as e:
+            logger.error("Failed to create export session: %s", e, exc_info=True)
+            # Still return a unique ID for recovery
+            return hash(datetime.now().isoformat()) % 1000000  # Simple fallback ID
 
     def complete_export_session(self, session_id: int, stats: dict[str, Any], status: str = "success") -> None:
-        """Update an export session record with completion details and statistics."""
-        logger.info("Completing export session ID: %d with status: %s", session_id, status)
-        logger.debug("Completion stats for session %d: %s", session_id, stats)
+        """Update an export session with completion details.
 
-        update_data = {
-            "end_time": datetime.now().isoformat(),
-            "highlights_total": stats.get("total_processed", 0),
-            "highlights_new": stats.get("sent", 0),  # Assuming 'sent' corresponds to new
-            "highlights_dupe": stats.get("duplicates", 0),
-            "status": status,
-        }
+        Args:
+            session_id: ID of the session to update
+            stats: Statistics about the export operation
+            status: Status of the export operation
+        """
+        logger.debug("Completing export session %s with status: %s", session_id, status)
         try:
-            self.db["export_sessions"].update(session_id, update_data)
-            logger.info("Successfully completed export session ID: %d", session_id)
-        except Exception:
-            logger.error("Failed to complete export session ID: %d", session_id, exc_info=True)
+            self.db["export_sessions"].update(
+                session_id,
+                {
+                    "end_time": datetime.now().isoformat(),
+                    "highlights_total": stats.get("total_processed", 0),
+                    "highlights_new": stats.get("sent", 0),
+                    "highlights_dupe": stats.get("duplicates", 0),
+                    "status": status,
+                },
+            )
+            logger.info("Successfully updated export session %s", session_id)
+        except Exception as e:
+            logger.error("Failed to update export session %s: %s", session_id, e, exc_info=True)
 
     def get_export_history(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Retrieve the most recent export session records."""
-        # Ensure limit is an integer and not None
-        if limit is None:
-            limit = 10
+        """Get the history of export sessions.
 
-        logger.debug("Fetching last %d export session records.", limit)
+        Args:
+            limit: Maximum number of sessions to return
+
+        Returns:
+            List of session records, ordered by start time (most recent first)
+        """
+        logger.debug("Retrieving export history (limit: %s)", limit)
         try:
-            history = list(self.db["export_sessions"].rows_where(order_by="start_time DESC", limit=limit))
-            logger.debug("Retrieved %d export history records.", len(history))
+            history = list(self.db["export_sessions"].rows_where(order_by="start_time desc", limit=limit))
+            logger.debug("Retrieved %s export sessions", len(history))
             return history
         except Exception as e:
-            logger.error("Error retrieving export history: %s", e)
+            logger.error("Failed to retrieve export history: %s", e, exc_info=True)
             return []
 
     def get_session_by_id(self, session_id: int) -> dict[str, Any] | None:
-        """Get a specific export session by ID.
+        """Get details for a specific export session.
 
         Args:
-            session_id: ID of the export session
+            session_id: ID of the session to retrieve
 
         Returns:
             Session record or None if not found
         """
-        logger.debug("Looking up export session with ID %s", session_id)
+        logger.debug("Getting details for session ID: %s", session_id)
         try:
-            # Convert to int in case it's passed as a string
-            session_id = int(session_id)
-            return dict(self.db["export_sessions"].get(session_id))
+            return self.db["export_sessions"].get(session_id)
         except Exception as e:
-            logger.debug("Failed to get session with ID %s: %s", session_id, e)
+            logger.error("Failed to retrieve session %s: %s", session_id, e)
             return None
 
     def get_highlights_by_session(self, session_id: int) -> list[dict[str, Any]]:
@@ -266,6 +261,232 @@ class HighlightsDAO:
         except Exception as e:
             logger.error("Error fetching highlights for session %s: %s", session_id, e)
             return []
+
+    def get_books(self) -> list[dict[str, Any]]:
+        """Get a list of all books in the database with their highlight counts.
+
+        Returns:
+            List of book records with title, author, and highlight count
+        """
+        logger.debug("Retrieving list of all books")
+        try:
+            # SQLite query to get distinct books with highlight counts
+            query = """
+            SELECT title, author, COUNT(*) as highlight_count
+            FROM highlights
+            GROUP BY title, author
+            ORDER BY title
+            """
+            books = list(self.db.query(query))
+            logger.debug("Retrieved %d unique books", len(books))
+            return books
+        except Exception as e:
+            logger.error("Failed to retrieve book list: %s", e, exc_info=True)
+            return []
+
+    def get_highlights(  # noqa: PLR0913
+        self,
+        title: str | None = None,
+        author: str | None = None,
+        text_search: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        sort_by: str = "date_exported",
+        sort_dir: str = "desc",
+    ) -> list[dict[str, Any]]:
+        """Get highlights with optional filtering.
+
+        Args:
+            title: Filter by book title (partial match)
+            author: Filter by author (partial match)
+            text_search: Search in highlight text (partial match)
+            limit: Maximum number of results to return
+            offset: Number of results to skip (for pagination)
+            sort_by: Field to sort by (date_exported, date_highlighted, title, author)
+            sort_dir: Sort direction (asc, desc)
+
+        Returns:
+            List of filtered highlight records
+        """
+        filters = HighlightFilters(
+            title=title,
+            author=author,
+            text_search=text_search,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        )
+        return self._get_highlights_with_filters(filters)
+
+    def _get_highlights_with_filters(self, filters: HighlightFilters) -> list[dict[str, Any]]:
+        """Internal implementation of retrieving highlights with filters.
+
+        Args:
+            filters: Filters for highlights
+
+        Returns:
+            List of filtered highlight records
+        """
+        logger.debug(
+            "Retrieving highlights with filters: title=%s, author=%s, text_search=%s",
+            filters.title,
+            filters.author,
+            filters.text_search,
+        )
+
+        # Build the WHERE clause and parameters
+        where_clauses = []
+        params = []
+
+        if filters.title:
+            # Handle wildcard search with * at the end (commonly used pattern)
+            if filters.title.endswith("*"):
+                where_clauses.append("title LIKE ?")
+                params.append(f"{filters.title[:-1]}%")  # Replace * with SQL wildcard %
+            else:
+                # Exact match if no wildcard
+                where_clauses.append("title = ?")
+                params.append(filters.title)
+
+        if filters.author:
+            # Exact match for author
+            where_clauses.append("author = ?")
+            params.append(filters.author)
+
+        if filters.text_search:
+            # Exact substring match for text content
+            where_clauses.append("text LIKE ?")
+            params.append(f"%{filters.text_search}%")
+
+        # Validate sort parameters
+        valid_sort_fields = ["date_exported", "date_highlighted", "title", "author"]
+        sort_by = filters.sort_by
+        if sort_by not in valid_sort_fields:
+            sort_by = "date_exported"
+
+        valid_sort_dirs = ["asc", "desc"]
+        sort_dir = filters.sort_dir
+        if sort_dir.lower() not in valid_sort_dirs:
+            sort_dir = "desc"
+
+        order_by = f"{sort_by} {sort_dir}"
+
+        try:
+            if where_clauses:
+                where_clause = " AND ".join(where_clauses)
+                logger.debug("SQL where clause: %s, params: %s", where_clause, params)
+                highlights = list(
+                    self.db["highlights"].rows_where(
+                        where_clause, params, order_by=order_by, limit=filters.limit, offset=filters.offset
+                    )
+                )
+            else:
+                highlights = list(
+                    self.db["highlights"].rows_where(order_by=order_by, limit=filters.limit, offset=filters.offset)
+                )
+
+            logger.debug("Retrieved %d highlights", len(highlights))
+            return highlights
+        except Exception as e:
+            logger.error("Failed to retrieve highlights: %s", e, exc_info=True)
+            return []
+
+    def get_highlight_count_with_filters(
+        self, title: str | None = None, author: str | None = None, text_search: str | None = None
+    ) -> int:
+        """Get the count of highlights matching the specified filters.
+
+        Args:
+            title: Filter by book title (partial match)
+            author: Filter by author (partial match)
+            text_search: Search in highlight text (partial match)
+
+        Returns:
+            Count of matching highlights
+        """
+        # Build the WHERE clause and parameters
+        where_clauses = []
+        params = []
+
+        if title:
+            # Handle wildcard search with * at the end (commonly used pattern)
+            if title.endswith("*"):
+                where_clauses.append("title LIKE ?")
+                params.append(f"{title[:-1]}%")  # Replace * with SQL wildcard %
+            else:
+                # Exact match if no wildcard
+                where_clauses.append("title = ?")
+                params.append(title)
+
+        if author:
+            # Exact match for author
+            where_clauses.append("author = ?")
+            params.append(author)
+
+        if text_search:
+            # Exact substring match for text content
+            where_clauses.append("text LIKE ?")
+            params.append(f"%{text_search}%")
+
+        try:
+            if where_clauses:
+                where_clause = " AND ".join(where_clauses)
+                logger.debug("Count SQL where clause: %s, params: %s", where_clause, params)
+                count = self.db["highlights"].count_where(where_clause, params)
+            else:
+                count = self.db["highlights"].count
+
+            return count
+        except Exception as e:
+            logger.error("Failed to get highlight count: %s", e, exc_info=True)
+            return 0
+
+    def delete_highlight(self, highlight_id: int) -> bool:
+        """Delete a highlight by ID.
+
+        Args:
+            highlight_id: ID of the highlight to delete
+
+        Returns:
+            True if deletion was successful, False otherwise
+        """
+        logger.debug("Deleting highlight with ID: %s", highlight_id)
+        try:
+            self.db["highlights"].delete(highlight_id)
+            logger.info("Successfully deleted highlight with ID: %s", highlight_id)
+            return True
+        except Exception as e:
+            logger.error("Failed to delete highlight with ID %s: %s", highlight_id, e, exc_info=True)
+            return False
+
+    def delete_highlights_by_book(self, title: str, author: str | None = None) -> int:
+        """Delete all highlights for a specific book.
+
+        Args:
+            title: Book title (exact match)
+            author: Book author (exact match, optional)
+
+        Returns:
+            Number of deleted highlights
+        """
+        logger.debug("Deleting highlights for book: '%s' by '%s'", title, author)
+        try:
+            if author:
+                query = "DELETE FROM highlights WHERE title = ? AND author = ?"
+                params = [title, author]
+            else:
+                query = "DELETE FROM highlights WHERE title = ?"
+                params = [title]
+
+            result = self.db.execute(query, params)
+            affected_rows = result.rowcount if hasattr(result, "rowcount") else 0
+
+            logger.info("Deleted %d highlights for book: '%s'", affected_rows, title)
+            return affected_rows
+        except Exception as e:
+            logger.error("Failed to delete highlights for book '%s': %s", title, e, exc_info=True)
+            return 0
 
     # --- Migration Handling ---
     def _apply_migrations(self) -> None:

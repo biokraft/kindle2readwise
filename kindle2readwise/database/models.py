@@ -1,9 +1,8 @@
 """Data models for kindle2readwise using Pydantic."""
 
 from datetime import datetime
-from typing import ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Highlight(BaseModel):
@@ -20,10 +19,7 @@ class Highlight(BaseModel):
     readwise_id: str | None = None
     status: str | None = None
 
-    class Config:
-        """Pydantic config for model."""
-
-        json_encoders: ClassVar[dict] = {datetime: lambda dt: dt.isoformat()}
+    model_config = ConfigDict(json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}})
 
 
 class ExportSession(BaseModel):
@@ -38,10 +34,7 @@ class ExportSession(BaseModel):
     source_file: str
     status: str = "in_progress"
 
-    class Config:
-        """Pydantic config for model."""
-
-        json_encoders: ClassVar[dict] = {datetime: lambda dt: dt.isoformat()}
+    model_config = ConfigDict(json_schema_extra={"json_encoders": {datetime: lambda dt: dt.isoformat()}})
 
 
 class ExportStats(BaseModel):
@@ -50,3 +43,15 @@ class ExportStats(BaseModel):
     total: int = 0
     new: int = 0
     dupe: int = 0
+
+
+class HighlightFilters(BaseModel):
+    """Model for highlight filtering options."""
+
+    title: str | None = None
+    author: str | None = None
+    text_search: str | None = None
+    limit: int = 100
+    offset: int = 0
+    sort_by: str = "date_exported"
+    sort_dir: str = "desc"

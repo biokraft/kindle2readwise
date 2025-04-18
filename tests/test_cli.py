@@ -274,3 +274,169 @@ def test_cli_history_placeholder(capsys):
     run_cli(["history"], expect_exit_code=0)
     captured = capsys.readouterr()
     assert "--- Export History ---" in captured.out
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_output", "expect_exit"),
+    [
+        (["highlights", "books"], "Books in Database", None),
+        (["highlights", "list", "--limit", "5"], "Found", None),
+        (["highlights", "list", "--title", "NonExistentBook"], "No highlights found", None),
+        (["highlights", "delete", "--id", "999", "--force"], "Failed to delete", 0),
+    ],
+)
+@pytest.mark.usefixtures("monkeypatch")
+def test_highlights_commands(args, expected_output, expect_exit, capsys):
+    """Test the highlights commands with various arguments."""
+    # Mock the HighlightsDAO to avoid database operations
+    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+        # Configure the mock
+        mock_dao = mock_dao_class.return_value
+
+        # Mock get_books method for the 'books' subcommand
+        mock_dao.get_books.return_value = [
+            {"title": "Test Book", "author": "Test Author", "highlight_count": 3},
+            {"title": "Another Book", "author": "Author B", "highlight_count": 1},
+        ]
+
+        # Mock get_highlight_count_with_filters method
+        mock_dao.get_highlight_count_with_filters.return_value = 3
+
+        # Configure the mock get_highlights to return appropriate results based on arguments
+        def mock_get_highlights(**kwargs):
+            if "title" in kwargs and kwargs["title"] == "NonExistentBook":
+                # Return empty list for NonExistentBook
+                return []
+            # Default response
+            return [
+                {
+                    "id": 1,
+                    "title": "Test Book",
+                    "author": "Test Author",
+                    "text": "Test highlight content",
+                    "location": "123-124",
+                    "date_highlighted": "2024-01-01T12:00:00",
+                    "date_exported": "2024-01-02T12:00:00",
+                    "status": "success",
+                }
+            ]
+
+        # Set up the side_effect to call our custom function
+        mock_dao.get_highlights.side_effect = mock_get_highlights
+
+        # Mock delete_highlight method (failing case)
+        mock_dao.delete_highlight.return_value = False
+
+        run_cli(args, expect_exit_code=expect_exit)
+
+        # Verify output
+        out, _ = capsys.readouterr()
+        assert expected_output in out
+
+
+@pytest.mark.usefixtures("monkeypatch")
+def test_highlights_list_with_filters(capsys):
+    """Test the highlights list command with various filters."""
+    # Prepare arguments
+    args = ["highlights", "list", "--title", "Test", "--author", "Author", "--text", "content"]
+
+    # Mock the HighlightsDAO
+    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+        mock_dao = mock_dao_class.return_value
+
+        # Set up mocks
+        mock_dao.get_highlight_count_with_filters.return_value = 2
+        mock_dao.get_highlights.return_value = [
+            {
+                "id": 1,
+                "title": "Test Book",
+                "author": "Test Author",
+                "text": "Some content here",
+                "location": "123-124",
+                "date_highlighted": "2024-01-01T12:00:00",
+                "date_exported": "2024-01-02T12:00:00",
+            },
+            {
+                "id": 2,
+                "title": "Test Book 2",
+                "author": "Author B",
+                "text": "More content",
+                "location": "200-210",
+                "date_highlighted": "2024-01-03T12:00:00",
+                "date_exported": "2024-01-04T12:00:00",
+            },
+        ]
+
+        # Run the command
+        run_cli(args)
+
+        # Verify mock was called with correct parameters
+        mock_dao.get_highlights.assert_called_once_with(
+            title="Test",
+            author="Author",
+            text_search="content",
+            limit=20,
+            offset=0,
+            sort_by="date_exported",
+            sort_dir="desc",
+        )
+
+        # Check output
+        out, _ = capsys.readouterr()
+        assert "Found 2 highlights total" in out
+        assert "Test Book" in out
+        assert "Test Author" in out
+        assert "Some content here" in out
+
+
+@pytest.mark.usefixtures("monkeypatch")
+def test_highlights_delete_book_confirm(capsys):
+    """Test the highlights delete book command with confirmation."""
+    # Prepare arguments
+    args = ["highlights", "delete", "--book", "Test Book"]
+
+    # Mock the HighlightsDAO
+    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+        mock_dao = mock_dao_class.return_value
+
+        # Set up mocks
+        mock_dao.get_highlight_count_with_filters.return_value = 3
+        mock_dao.delete_highlights_by_book.return_value = 3
+
+        # Mock input function to simulate user confirmation
+        with patch("kindle2readwise.cli.input", return_value="y"):
+            # Run the command
+            run_cli(args)
+
+            # Verify delete was called with correct parameters
+            mock_dao.delete_highlights_by_book.assert_called_once_with("Test Book", None)
+
+            # Check output
+            out, _ = capsys.readouterr()
+            assert "Successfully deleted 3 highlights" in out
+
+
+@pytest.mark.usefixtures("monkeypatch")
+def test_highlights_delete_book_cancel(capsys):
+    """Test the highlights delete book command with cancellation."""
+    # Prepare arguments
+    args = ["highlights", "delete", "--book", "Test Book", "--author", "Test Author"]
+
+    # Mock the HighlightsDAO
+    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+        mock_dao = mock_dao_class.return_value
+
+        # Set up mocks
+        mock_dao.get_highlight_count_with_filters.return_value = 3
+
+        # Mock input function to simulate user cancellation
+        with patch("kindle2readwise.cli.input", return_value="n"):
+            # Run the command
+            run_cli(args)
+
+            # Verify delete was not called
+            mock_dao.delete_highlights_by_book.assert_not_called()
+
+            # Check output
+            out, _ = capsys.readouterr()
+            assert "Deletion cancelled" in out

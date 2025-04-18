@@ -68,10 +68,10 @@ The application follows these design principles:
 - Create summary reports of exported highlights (Done)
 - Allow review of previously exported content (Done)
 
-### Phase 5: Enhanced Database Management
-- Add command to list highlights stored in the local database (with filtering)
-- Implement functionality to delete highlights/books from the local database
-- Provide more detailed summary reports (extending Phase 4)
+### Phase 5: Enhanced Database Management (Completed)
+- Add command to list highlights stored in the local database with filtering (Done)
+- Implement functionality to delete highlights/books from the local database (Done)
+- Provide more detailed summary reports extending Phase 4 (Done)
 
 ### Phase 6: Kindle Device Detection
 - Implement automatic Kindle device detection when connected
