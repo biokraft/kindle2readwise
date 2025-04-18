@@ -98,7 +98,13 @@ The application follows these design principles:
 - Implement more robust error handling and recovery
 - Add retries for failed Readwise API calls
 
-### Phase 12: Database Maintainability
+### Phase 12: User Documentation (GitHub Pages)
+- Set up GitHub Pages for the repository
+- Write documentation covering installation (pipx/uv tool install)
+- Write documentation covering basic usage and commands (export, history, config)
+- Include examples and troubleshooting tips
+
+### Phase 13: Database Maintainability
 - Add database migration support for future schema changes
 
 ## Global Installation
