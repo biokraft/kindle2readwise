@@ -50,6 +50,7 @@ kindle2readwise export [options] [clippings_file]
 | `--dry-run`, `-d` | Flag | Parse clippings but don't export to Readwise | False |
 | `--output`, `-o` | Path | Save parsed highlights to file | None |
 | `--format` | String | Output format for saved highlights (json, csv) | json |
+| `--interactive`, `-i` | Flag | Review and select highlights interactively before export | False |
 | `--verbose`, `-v` | Flag | Enable verbose output | False |
 | `--quiet`, `-q` | Flag | Suppress all output except errors | False |
 
@@ -62,6 +63,9 @@ kindle2readwise export
 # Specify clippings file and API token
 kindle2readwise export -f ~/Downloads/My\ Clippings.txt -t YOUR_API_TOKEN
 
+# Interactive mode to review highlights before export
+kindle2readwise export --interactive
+
 # Dry run with verbose output
 kindle2readwise export --dry-run --verbose
 
@@ -70,6 +74,57 @@ kindle2readwise export --force
 
 # Export and save to file
 kindle2readwise export --output highlights.json
+```
+
+### Interactive Mode
+
+The interactive mode allows users to review and selectively export highlights:
+
+1. **Highlight Review**: All new highlights are displayed grouped by book
+2. **Selection Options**:
+   - Enter specific highlight IDs to select (e.g., "1,3,5")
+   - Type 'a' to select all highlights
+   - Type 'q' to quit without exporting
+3. **Confirmation**: Confirm the selection before proceeding with export
+4. **Export Summary**: Displays the results of the export operation
+
+Example interactive session:
+
+```
+=== Interactive Export Mode ===
+Found 5 new highlights to export.
+
+📚 Book Title 1 - Author Name
+--------------------------------------------------------------------------------
+  [1] This is the text of highlight 1...
+      Location: 1234, Date: 2023-01-01
+
+  [2] This is the text of highlight 2...
+      Location: 1245, Date: 2023-01-01
+
+📚 Book Title 2 - Author Name
+--------------------------------------------------------------------------------
+  [3] This is the text of highlight 3...
+      Location: 100, Date: 2023-01-02
+
+Select highlights to export:
+  - Enter highlight IDs separated by commas (e.g., '1,3,5')
+  - Enter 'a' to select all highlights
+  - Enter 'q' to quit without exporting
+
+Your selection: 1,3
+Selected 2 highlights.
+
+Proceed with export? (y/n): y
+
+Exporting selected highlights...
+
+--- Export Summary ---
+Clippings File: /path/to/My Clippings.txt
+Total Clippings Processed: 5
+New Highlights Sent to Readwise: 2
+Duplicate Highlights Skipped: 0
+All new highlights sent successfully!
 ```
 
 ## Command: `configure`

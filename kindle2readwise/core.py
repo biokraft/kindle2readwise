@@ -247,3 +247,106 @@ class Kindle2Readwise:
         """Close the database connection explicitly if needed."""
         if self.db:
             self.db.close()
+
+    def get_pending_highlights(self) -> list[dict]:
+        """Get highlights that would be exported but have not been sent to Readwise yet.
+
+        Returns:
+            A list of dictionaries containing highlight information
+        """
+        logger.debug("Getting pending highlights that have not been exported yet.")
+
+        # Parse clippings
+        clippings = self.parser.parse()
+        logger.info("Found %d highlights in clippings file.", len(clippings))
+
+        # Filter out highlights that are already in the database
+        pending_highlights = []
+
+        for idx, clipping in enumerate(clippings):
+            # Check if highlight exists in the database directly
+            # KindleClipping objects have attributes, not dictionary keys
+            exists = self.db.highlight_exists(
+                clipping.title,
+                clipping.author or "",  # Handle potential None with or ""
+                clipping.content,
+            )
+
+            if not exists:
+                # Convert KindleClipping to dictionary for display in interactive mode
+                highlight_dict = {
+                    "id": idx + 1,  # 1-based ID
+                    "title": clipping.title,
+                    "author": clipping.author or "Unknown",
+                    "highlight": clipping.content,
+                    "location": clipping.location or "Unknown",
+                    "date": clipping.date or "Unknown",
+                    # Store the original clipping object for processing
+                    "original_clipping": clipping,
+                }
+                pending_highlights.append(highlight_dict)
+
+        logger.info("Found %d new highlights to export.", len(pending_highlights))
+        return pending_highlights
+
+    def process_selected(self, selected_ids: list[int]) -> ExportStats:
+        """Process only selected highlights from the clippings file.
+
+        Args:
+            selected_ids: List of highlight IDs to process
+
+        Returns:
+            Statistics about the export
+        """
+        logger.debug("Processing selected highlights with IDs: %s", selected_ids)
+
+        # Parse all highlights
+        all_clippings = self.parser.parse()
+        logger.info("Found %d highlights in clippings file.", len(all_clippings))
+
+        # Get the pending highlights to match with selected IDs
+        pending_highlights = self.get_pending_highlights()
+
+        # Create ID to highlight mapping for easier lookup
+        id_to_highlight = {h["id"]: h for h in pending_highlights}
+
+        # Find the selected highlights
+        selected_highlights = [id_to_highlight[id] for id in selected_ids if id in id_to_highlight]
+
+        # Extract the original clipping objects
+        selected_clippings = [h["original_clipping"] for h in selected_highlights]
+
+        # Export statistics
+        stats = ExportStats()
+        stats.total_processed = len(all_clippings)
+        stats.new_sent = 0
+        stats.duplicates_skipped = stats.total_processed - len(pending_highlights)
+        stats.failed_to_send = 0
+
+        # Process selected highlights
+        if selected_clippings:
+            logger.info("Processing %d selected highlights.", len(selected_clippings))
+
+            # Send to Readwise in batches
+            if self.dry_run:
+                # In dry run mode, we assume all highlights would have been sent successfully
+                logger.info(
+                    "DRY RUN: Would have sent %d new clippings to Readwise. Skipping actual API call.",
+                    len(selected_clippings),
+                )
+                stats.new_sent = len(selected_clippings)
+            else:
+                # Send to Readwise
+                export_result = self.readwise_client.send_highlights(selected_clippings)
+                # Update based on what was actually sent
+                sent_count = export_result.get("sent", 0)
+                stats.new_sent = sent_count
+                stats.failed_to_send = export_result.get("failed", 0)
+
+                # Save successfully exported highlights to the database
+                if sent_count > 0:
+                    self._save_exported_highlights(selected_clippings[:sent_count])
+        else:
+            logger.info("No highlights selected for export.")
+
+        return stats

@@ -80,17 +80,50 @@ uv cache clean
 
 ## Usage
 
-Basic usage:
-
 ```bash
-kindle2readwise export -f path/to/My\ Clippings.txt -t YOUR_READWISE_API_TOKEN
-```
+# Basic usage
+kindle2readwise export
 
-For more options and commands:
+# Specify clippings file
+kindle2readwise export /path/to/My\ Clippings.txt
 
-```bash
+# Use interactive mode to review highlights before export
+kindle2readwise export -i
+
+# Configure Readwise token
+kindle2readwise config token
+
+# View export history
+kindle2readwise history
+
+# List highlights in the database
+kindle2readwise highlights list
+
+# Get help
 kindle2readwise --help
 ```
+
+### Interactive Mode
+
+The interactive mode allows you to review and selectively export highlights:
+
+```bash
+kindle2readwise export --interactive
+
+# Or using the short form
+kindle2readwise export -i
+```
+
+In interactive mode:
+- All new highlights are displayed grouped by book
+- You can select specific highlights to export by their ID
+- Type 'a' to select all highlights
+- Type 'q' to quit without exporting
+
+This is useful when you want to:
+- Review highlights before sending them to Readwise
+- Export only specific highlights from your clippings file
+- Skip certain highlights you don't want in your Readwise account
 
 ## Development
 

@@ -77,9 +77,9 @@ The application follows these design principles:
 - Implement automatic Kindle device detection when connected (Done)
 - Support cross-platform device detection (Windows, macOS, Linux) (Done)
 
-### Phase 7: Interactive Export Review
-- Implement interactive mode for reviewing new highlights before export
-- Allow users to selectively skip or tag items during review
+### Phase 7: Interactive Export Review (Completed)
+- Implement interactive mode for reviewing new highlights before export (Done)
+- Allow users to selectively skip items during review (Done)
 
 ### Phase 8: Advanced Highlight Processing
 - Implement smarter duplicate detection (e.g., fuzzy matching)

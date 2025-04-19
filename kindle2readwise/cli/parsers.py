@@ -71,6 +71,12 @@ def _setup_export_command(subparsers):
     )
     parser_export.add_argument("--output", "-o", type=str, help="Output highlights to a file instead of Readwise.")
     parser_export.add_argument("--devices", action="store_true", help="List detected Kindle devices and exit.")
+    parser_export.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="Review and select highlights interactively before export",
+    )
     parser_export.set_defaults(func=handle_export)
 
 
