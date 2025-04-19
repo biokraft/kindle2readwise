@@ -9,7 +9,7 @@ class ReadwiseHighlight(BaseModel):
     author: str | None = Field(default=None, description="The author of the book")
     source_type: str = Field(default="kindle", description="The source type of the highlight")
     category: str = Field(default="books", description="The category of the highlight")
-    location: str | None = Field(default=None, description="The location of the highlight within the book")
+    location: int | None = Field(default=None, description="The location of the highlight within the book (as integer)")
     location_type: str | None = Field(default="location", description="The type of location (e.g., 'location', 'page')")
     highlighted_at: str | None = Field(default=None, description="ISO timestamp when the highlight was created")
 

@@ -1,4 +1,5 @@
 import logging
+import re  # Add re import
 import time
 
 import requests
@@ -199,13 +200,47 @@ class ReadwiseAPIClient:
             )
             return None
 
+        # Parse location string to get the starting integer
+        location_int = None
+        if clipping.location:
+            # Find the first sequence of digits (handles "123" and "123-456")
+            match = re.search(r"^\d+", clipping.location)
+            if match:
+                try:
+                    location_int = int(match.group(0))
+                except ValueError:
+                    logger.warning(
+                        "Could not convert parsed location '%s' to integer for clipping: Title='%s', Loc='%s'",
+                        match.group(0),
+                        clipping.title,
+                        clipping.location,
+                    )
+            else:
+                logger.warning(
+                    "Could not parse integer location from string '%s' for clipping: Title='%s'",
+                    clipping.location,
+                    clipping.title,
+                )
+
+        # Skip if location couldn't be parsed to an integer
+        if location_int is None:
+            logger.warning(
+                "Skipping conversion due to invalid or missing location integer: Title='%s', Loc='%s'",
+                clipping.title,
+                clipping.location,
+            )
+            return None
+
         logger.debug(
-            "Converting clipping to ReadwiseHighlight: Title='%s', Loc='%s'", clipping.title, clipping.location
+            "Converting clipping to ReadwiseHighlight: Title='%s', LocStr='%s', LocInt=%d",
+            clipping.title,
+            clipping.location,
+            location_int,
         )
         return ReadwiseHighlight(
             text=clipping.content,
             title=clipping.title,
             author=clipping.author,
-            location=clipping.location,
+            location=location_int,  # Use the parsed integer location
             highlighted_at=clipping.date.isoformat() if clipping.date else None,
         )

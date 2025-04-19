@@ -81,30 +81,40 @@ The application follows these design principles:
 - Implement interactive mode for reviewing new highlights before export (Done)
 - Allow users to selectively skip items during review (Done)
 
-### Phase 8: User Documentation (GitHub Pages)
-- Set up GitHub Pages for the repository
-- Write documentation covering installation (pipx/uv tool install)
-- Write documentation covering basic usage and commands (export, history, config)
-- Include examples and troubleshooting tips
+### Phase 8: User Documentation (Completed)
+- Set up Documentation for the repository (Done)
+- Write documentation covering installation (pipx/uv tool install) (Done)
+- Write documentation covering basic usage and commands (export, history, config) (Done)
+- Include examples and troubleshooting tips (Done)
 
-### Phase 9: Advanced Highlight Processing
+### Phase 9: Highlight Note Detection
+- Implement detection and handling of notes related to highlights (they seem to appear as a clipping right after the highlight and read - Your Note on page X at the beginning)
+- These notes should be added to the highlight above and sent to Readwise as a parameter of the processed highlight (See Readwise API)
+- Once done, update documentation to indicate notes can use the inline tagging feature of Readwise, as highlight related notes are processed correctly
+
+### Phase 10: Auto search for cover images
+- The readwise API supports image_url as a parameter for highlights to send a fitting cover image for the currently processed book or article
+- Implement auto search for cover images using the book's title and author
+- Implement a fallback image (e.g. a generic book icon) if no cover image is found
+
+### Phase 11: Advanced Highlight Processing
 - Implement smarter duplicate detection (e.g., fuzzy matching)
 - Detect and handle cases where a highlight might have been updated on the Kindle
 
-### Phase 10: Reliability & Error Handling
+### Phase 12: Reliability & Error Handling
 - Implement more robust error handling and recovery
 - Add retries for failed Readwise API calls
 
-### Phase 11: Database Maintainability
+### Phase 13: Database Maintainability
 - Add database migration support for future schema changes
 
-### Phase 12: Notification System (Postponed)
+### Phase 14: Notification System (Postponed)
 - Add OS-dependent notification system for export events
 - Implement OS notification system for error reporting
 - Create user-configurable notification preferences
 - *Postponed due to 2024 Kindle device not being programmatically accessible*
 
-### Phase 13: Automated Export Controls (Postponed)
+### Phase 15: Automated Export Controls (Postponed)
 - Create configurable user confirmation options before export
 - Allow users to enable/disable automated export via CLI options
 - *Postponed due to 2024 Kindle device not being programmatically accessible*
