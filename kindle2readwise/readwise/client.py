@@ -19,6 +19,7 @@ class ReadwiseAPIClient:
 
     # HTTP status codes
     HTTP_OK = 200
+    HTTP_NO_CONTENT = 204
 
     # Batch size and rate limiting
     MAX_BATCH_SIZE = 100
@@ -50,7 +51,7 @@ class ReadwiseAPIClient:
         logger.info("Validating Readwise API token...")
         try:
             response = requests.get(self.AUTH_ENDPOINT, headers=self.headers)
-            is_valid = response.status_code == self.HTTP_OK
+            is_valid = response.status_code == self.HTTP_NO_CONTENT
             if is_valid:
                 logger.info("Readwise API token is valid (HTTP %d).", response.status_code)
             else:
