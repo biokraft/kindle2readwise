@@ -81,19 +81,19 @@ The application follows these design principles:
 - Implement interactive mode for reviewing new highlights before export (Done)
 - Allow users to selectively skip items during review (Done)
 
-### Phase 8: Advanced Highlight Processing
-- Implement smarter duplicate detection (e.g., fuzzy matching)
-- Detect and handle cases where a highlight might have been updated on the Kindle
-
-### Phase 9: Reliability & Error Handling
-- Implement more robust error handling and recovery
-- Add retries for failed Readwise API calls
-
-### Phase 10: User Documentation (GitHub Pages)
+### Phase 8: User Documentation (GitHub Pages)
 - Set up GitHub Pages for the repository
 - Write documentation covering installation (pipx/uv tool install)
 - Write documentation covering basic usage and commands (export, history, config)
 - Include examples and troubleshooting tips
+
+### Phase 9: Advanced Highlight Processing
+- Implement smarter duplicate detection (e.g., fuzzy matching)
+- Detect and handle cases where a highlight might have been updated on the Kindle
+
+### Phase 10: Reliability & Error Handling
+- Implement more robust error handling and recovery
+- Add retries for failed Readwise API calls
 
 ### Phase 11: Database Maintainability
 - Add database migration support for future schema changes
