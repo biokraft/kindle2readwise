@@ -29,7 +29,7 @@ def mock_kindle2readwise():
     with patch("kindle2readwise.cli.commands.export.Kindle2Readwise") as mock_app:
         mock_instance = mock_app.return_value
         # Configure default mock behaviors
-        mock_instance.validate_setup.return_value = (True, "")
+        mock_instance.validate_setup.return_value = None  # Now returns None instead of tuple
 
         # Create a proper stats object with integer attributes
         mock_stats = MagicMock()
@@ -174,7 +174,7 @@ def test_cli_export_no_token(tmp_path):
         mock_cwd.return_value = tmp_path
         run_cli(["export"], expect_exit_code=1)
 
-    # Updated assertion to match the actual error message from validate_setup
+    # Updated assertion to match the actual error message when ValidationError is raised
     mock_logger.critical.assert_called_with("Setup validation failed: %s", "Invalid Readwise API token.")
 
 
@@ -242,7 +242,7 @@ def test_cli_logging_setup(mock_setup_logging, tmp_path):
 
         # Configure the mock
         inst = mock_kindle2readwise.return_value
-        inst.validate_setup.return_value = (True, "")
+        inst.validate_setup.return_value = None
         inst.process.return_value = MagicMock(total_processed=5, new_sent=3, duplicates_skipped=2, failed_to_send=0)
         mock_exit.side_effect = SystemExit(0)
 

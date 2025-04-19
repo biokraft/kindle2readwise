@@ -7,6 +7,7 @@ from pathlib import Path
 # Use TYPE_CHECKING to avoid circular imports for type hints if models grow complex
 # Use the DAO and default path from the database module
 from .database import DEFAULT_DB_PATH, HighlightsDAO
+from .exceptions import ProcessingError, ValidationError
 from .models import ExportStats
 from .parser import KindleClipping, KindleClippingsParser
 from .readwise import ReadwiseAPIClient
@@ -31,33 +32,43 @@ class Kindle2Readwise:
         self.db = HighlightsDAO(self.db_path)  # Pass the Path object
         logger.info("Kindle2Readwise initialized. Dry run mode: %s", self.dry_run)
 
-    def validate_setup(self) -> tuple[bool, str]:
-        """Validate the application setup (file existence, API token)."""
+    def validate_setup(self) -> None:
+        """Validate the application setup (file existence, API token).
+
+        Raises:
+            ValidationError: If the setup validation fails.
+        """
         logger.info("Validating setup...")
         # Check if clippings file exists
         if not self.clippings_file.exists():
             msg = f"Clippings file not found: {self.clippings_file}"
             logger.error(msg)
-            return False, msg
+            raise ValidationError(msg)
         logger.debug("Clippings file found: %s", self.clippings_file)
 
         # Skip Readwise API token validation in dry-run mode
         if self.dry_run:
             logger.info("Dry run mode active - skipping Readwise API token validation.")
-            return True, "Setup validated successfully (token validation skipped in dry-run mode)."
+            return
 
         # Validate Readwise API token
         if not self.readwise_client.validate_token():
             msg = "Invalid Readwise API token."
             logger.error(msg)
-            return False, msg
+            raise ValidationError(msg)
         logger.debug("Readwise API token validated successfully.")
 
         logger.info("Setup validation successful.")
-        return True, "Setup validated successfully."
 
     def process(self) -> ExportStats:
-        """Process Kindle clippings and export them to Readwise."""
+        """Process Kindle clippings and export them to Readwise.
+
+        Returns:
+            ExportStats: Statistics about the export process.
+
+        Raises:
+            ProcessingError: If there was an error processing the clippings.
+        """
         logger.info("Starting processing for clippings file: %s", self.clippings_file)
         if self.dry_run:
             logger.info("DRY RUN MODE: No highlights will be sent to Readwise.")
@@ -71,6 +82,7 @@ class Kindle2Readwise:
         stats = ExportStats()
         session_status = "success"  # Assume success initially
         status_ref = [session_status]  # Use a list to reference the status
+        all_clippings = []
 
         try:
             # Parse and filter clippings
@@ -81,12 +93,19 @@ class Kindle2Readwise:
             # Process clippings and update stats
             self._process_clippings(all_clippings, stats, status_ref)
             session_status = status_ref[0]  # Get updated status after processing
-        except Exception:
+
+            if stats.failed_to_send > 0:
+                error_msg = f"Failed to send {stats.failed_to_send} highlights to Readwise."
+                logger.warning(error_msg)
+                # Allow partial success to continue without raising an exception
+        except Exception as e:
             logger.error("An error occurred during processing.", exc_info=True)
             session_status = "error"
             # Ensure stats reflect the failure state if possible
-            stats.failed_to_send = len(all_clippings) if "all_clippings" in locals() else stats.total_processed
+            stats.failed_to_send = len(all_clippings) if all_clippings else stats.total_processed
             stats.new_sent = 0
+            # Wrap the exception in a ProcessingError
+            raise ProcessingError(f"Processing failed: {e!s}") from e
         finally:
             self._complete_process(session_id, stats, session_status, start_time)
 

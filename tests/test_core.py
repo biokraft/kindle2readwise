@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from kindle2readwise.core import Kindle2Readwise
+from kindle2readwise.exceptions import ValidationError
 from kindle2readwise.parser import KindleClipping
 
 # Constants to replace magic numbers
@@ -104,10 +105,8 @@ def test_validate_setup_success(mock_path_exists, mock_app):
     # Ensure the client returns True for token validation
     client_mock.validate_token.return_value = True
 
-    is_valid, error = app.validate_setup()
-
-    assert is_valid is True
-    assert error == "Setup validated successfully."
+    # Should not raise any exceptions
+    app.validate_setup()
 
 
 @patch("pathlib.Path.exists", return_value=False)
@@ -116,10 +115,11 @@ def test_validate_setup_missing_file(mock_path_exists, mock_app):
     assert mock_path_exists is not None  # Use parameter to avoid warning
     app, _, _, _ = mock_app
 
-    is_valid, error = app.validate_setup()
+    # Should raise ValidationError with message about file not found
+    with pytest.raises(ValidationError) as excinfo:
+        app.validate_setup()
 
-    assert is_valid is False
-    assert "not found" in error
+    assert "not found" in str(excinfo.value)
 
 
 @patch("pathlib.Path.exists", return_value=True)
@@ -131,10 +131,11 @@ def test_validate_setup_invalid_token(mock_path_exists, mock_app):
     # Configure token validation to fail
     client_mock.validate_token.return_value = False
 
-    is_valid, error = app.validate_setup()
+    # Should raise ValidationError with message about invalid token
+    with pytest.raises(ValidationError) as excinfo:
+        app.validate_setup()
 
-    assert is_valid is False
-    assert "Invalid Readwise API token" in error
+    assert "Invalid Readwise API token" in str(excinfo.value)
 
 
 def test_process_new_highlights(mock_app):

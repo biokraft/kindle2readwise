@@ -7,6 +7,7 @@ from pathlib import Path
 from ...config import get_config_value
 from ...core import Kindle2Readwise
 from ...database import DEFAULT_DB_PATH
+from ...exceptions import ProcessingError, ValidationError
 from ..utils.common import get_default_clippings_path, get_readwise_token_cli
 from ..utils.formatters import format_export_summary
 from .devices import handle_devices
@@ -40,18 +41,21 @@ def handle_export(args):
             dry_run=args.dry_run,
         )
 
-        is_valid, validation_msg = app.validate_setup()
-        if not is_valid:
-            logger.critical("Setup validation failed: %s", validation_msg)
+        try:
+            app.validate_setup()
+            logger.info("Setup valid. Starting export process...")
+            stats = app.process()
+            print(format_export_summary(stats, clippings_file, args.dry_run))
+
+            # Set exit code based on failed sends
+            if stats.failed_to_send > 0:
+                sys.exit(1)
+
+        except ValidationError as e:
+            logger.critical("Setup validation failed: %s", str(e))
             sys.exit(1)
-
-        logger.info("Setup valid. Starting export process...")
-        stats = app.process()
-
-        print(format_export_summary(stats, clippings_file, args.dry_run))
-
-        # Set exit code based on failed sends
-        if stats.failed_to_send > 0:
+        except ProcessingError as e:
+            logger.critical("Processing failed: %s", str(e))
             sys.exit(1)
 
     except FileNotFoundError as e:
