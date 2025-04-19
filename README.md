@@ -4,6 +4,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-black)](https://github.com/astral-sh/ruff)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen)](https://pre-commit.com/)
+[![Latest release](https://img.shields.io/github/v/release/biokraft/kindle2readwise)](https://github.com/biokraft/kindle2readwise/releases/latest)
 
 A Python application for exporting Kindle highlights to Readwise. This tool parses your Kindle's "My Clippings.txt" file and sends the highlights to your Readwise account, helping you manage and review your reading highlights efficiently.
 
@@ -31,8 +32,11 @@ A Python application for exporting Kindle highlights to Readwise. This tool pars
 ### Installation
 
 ```bash
-# Install as a global tool
+# Install the latest version
 uv tool install git+https://github.com/biokraft/kindle2readwise.git
+
+# Or install a specific version (e.g., v0.1.0)
+# uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.0
 ```
 
 ### Basic Usage
