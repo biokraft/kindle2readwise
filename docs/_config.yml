@@ -1,5 +1,6 @@
 remote_theme: pages-themes/minimal@v0.2.0
-theme: jekyll-theme-minimal
+# theme: jekyll-theme-minimal is commented out here as it's not needed with remote_theme
+# theme: jekyll-theme-minimal
 title: kindle2readwise Documentation
 description: A tool to export your Kindle highlights to Readwise
 baseurl: /kindle2readwise
