@@ -1,3 +1,8 @@
+---
+layout: default
+title: Usage
+---
+
 # Usage
 
 This guide explains how to use the main commands of `kindle2readwise`.

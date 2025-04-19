@@ -1,3 +1,8 @@
+---
+layout: default
+title: Home
+---
+
 # kindle2readwise Documentation
 
 Welcome to the user documentation for `kindle2readwise`, a tool to export your Kindle highlights to Readwise.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Installation
+---
+
 # Installation
 
 `kindle2readwise` is designed to be installed as a global command-line tool using [UV](https://github.com/astral-sh/uv), a fast Python package installer and resolver.

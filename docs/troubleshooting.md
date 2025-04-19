@@ -1,3 +1,8 @@
+---
+layout: default
+title: Troubleshooting
+---
+
 # Troubleshooting
 
 This page covers common issues and how to resolve them.
