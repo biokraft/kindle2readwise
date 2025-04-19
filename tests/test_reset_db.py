@@ -116,14 +116,17 @@ def test_reset_db_canceled(mock_db_path, mock_args_no_force, capsys):
 
 def test_reset_db_with_force(mock_db_path, mock_args_force, capsys):
     """Test reset-db with --force flag to skip confirmation."""
-    with patch("kindle2readwise.cli.commands.reset_db.get_config_value", return_value=mock_db_path):
+    with (
+        patch("kindle2readwise.cli.commands.reset_db.get_config_value", return_value=mock_db_path),
+        patch("pathlib.Path.unlink") as mock_unlink,
+    ):
         # Call the handler with force flag
         handle_reset_db(mock_args_force)
 
     # Verify behavior with force flag
     captured = capsys.readouterr()
     assert "Database reset successfully" in captured.out
-    assert not mock_db_path.exists()  # File should be deleted
+    mock_unlink.assert_called_once()  # Check that unlink was called
     # No confirmation prompt should appear
     assert "Are you absolutely sure" not in captured.out
 

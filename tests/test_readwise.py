@@ -33,7 +33,7 @@ def api_client():
 @responses.activate
 def test_validate_token_success(api_client):
     """Test token validation with successful response."""
-    responses.add(responses.GET, "https://readwise.io/api/v2/auth/", json={"authenticated": True}, status=200)
+    responses.add(responses.GET, "https://readwise.io/api/v2/auth/", status=204)
 
     assert api_client.validate_token() is True
 

@@ -164,18 +164,38 @@ def test_cli_export_with_args(tmp_path, mock_kindle2readwise):
         assert str(kwargs["db_path"]) == str(custom_db)
 
 
+@pytest.mark.usefixtures("unset_token_env")
 def test_cli_export_no_token(tmp_path):
     """Test export command fails if no token is provided."""
-    # Note: unset_token_env fixture is applied automatically but we don't need it explicitly
+    # Create a dummy clippings file to avoid other validation errors
     clippings_file = tmp_path / "My Clippings.txt"
     clippings_file.touch()
 
-    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.commands.export.logger") as mock_logger:
-        mock_cwd.return_value = tmp_path
+    # Patch the working directory
+    with (
+        patch("pathlib.Path.cwd", return_value=tmp_path),
+        # Directly mock the get_readwise_token_cli to return None (no token)
+        patch("kindle2readwise.cli.commands.export.get_readwise_token_cli", return_value=None),
+        # Mock the logger to capture the error message
+        patch("kindle2readwise.cli.commands.export.logger") as mock_logger,
+        # Mock sys.exit with a special side_effect that we can test for
+        patch("kindle2readwise.cli.commands.export.sys.exit") as mock_exit,
+    ):
+        # Have sys.exit raise a custom SystemExit we can check
+        mock_exit.side_effect = SystemExit(1)
+
+        # Run the CLI command - expect exit code 1
         run_cli(["export"], expect_exit_code=1)
 
-    # Updated assertion to match the actual error message when ValidationError is raised
-    mock_logger.critical.assert_called_with("Setup validation failed: %s", "Invalid Readwise API token.")
+        # Verify sys.exit was called
+        mock_exit.assert_called_once_with(1)
+
+        # Verify the error was logged with the correct message
+        mock_logger.critical.assert_called_with(
+            "Readwise API token not provided. Set it using the --api-token flag, the %s environment variable, "
+            "or by running 'kindle2readwise config token'.",
+            "READWISE_API_TOKEN",
+        )
 
 
 @pytest.mark.usefixtures("set_token_env")
