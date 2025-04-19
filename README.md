@@ -9,7 +9,7 @@ A Python application for exporting Kindle highlights to Readwise. This tool pars
 
 ## Documentation
 
-**Looking to use kindle2readwise?** Visit our [official documentation](https://biokraft.github.io/kindle2readwise/) for installation instructions, usage guides, examples, and troubleshooting help.
+**Looking to use kindle2readwise?** Visit our [official documentation](docs/index.md) for installation instructions, usage guides, examples, and troubleshooting help.
 
 ## Features
 
@@ -48,7 +48,7 @@ kindle2readwise export --clippings-file /path/to/My\ Clippings.txt
 kindle2readwise --help
 ```
 
-For detailed usage examples and more advanced features, please refer to the [official documentation](https://biokraft.github.io/kindle2readwise/).
+For detailed usage examples and more advanced features, please refer to the [official documentation](docs/index.md).
 
 ## Development
 
