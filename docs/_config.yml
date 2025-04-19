@@ -1,3 +1,27 @@
 theme: jekyll-theme-minimal
 title: kindle2readwise Documentation
-description: User documentation for the kindle2readwise application.
+description: A tool to export your Kindle highlights to Readwise
+baseurl: /kindle2readwise
+url: https://biokraft.github.io
+repository: biokraft/kindle2readwise
+
+# Build settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .sass-cache/
+  - .jekyll-cache/
+  - .bundle/

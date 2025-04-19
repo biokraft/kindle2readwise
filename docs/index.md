@@ -1,15 +1,15 @@
 ---
 layout: default
-title: Home
+title: kindle2readwise Documentation
 ---
 
-# kindle2readwise Documentation
+# kindle2readwise
 
-Welcome to the user documentation for `kindle2readwise`, a tool to export your Kindle highlights to Readwise.
+A tool to export your Kindle highlights to Readwise.
 
 ## Table of Contents
 
-- [Installation](installation.md)
-- [Usage](usage.md)
-- [Examples](examples.md)
-- [Troubleshooting](troubleshooting.md)
+- [Installation](installation.html)
+- [Usage](usage.html)
+- [Examples](examples.html)
+- [Troubleshooting](troubleshooting.html)
