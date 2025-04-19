@@ -7,6 +7,10 @@
 
 A Python application for exporting Kindle highlights to Readwise. This tool parses your Kindle's "My Clippings.txt" file and sends the highlights to your Readwise account, helping you manage and review your reading highlights efficiently.
 
+## Documentation
+
+**Looking to use kindle2readwise?** Visit our [official documentation](https://biokraft.github.io/kindle2readwise/) for installation instructions, usage guides, examples, and troubleshooting help.
+
 ## Features
 
 - Parse Kindle highlights from the "My Clippings.txt" file
@@ -15,20 +19,42 @@ A Python application for exporting Kindle highlights to Readwise. This tool pars
 - Extensive logging for easy debugging and traceability
 - Simple command-line interface
 
-## Requirements
+## Quick Start
+
+### Requirements
 
 - Python 3.12 or newer
 - [UV package manager](https://github.com/astral-sh/uv)
 - Kindle device or access to a "My Clippings.txt" file
 - Readwise account and API token (get yours at https://readwise.io/access_token)
 
-## Installation
+### Installation
 
-### Installing UV
+```bash
+# Install as a global tool
+uv tool install git+https://github.com/biokraft/kindle2readwise.git
+```
 
-This project uses the UV package manager. Follow the [official UV installation instructions](https://github.com/astral-sh/uv#installation) to install UV on your system.
+### Basic Usage
 
-### Setting Up the Project
+```bash
+# Configure your Readwise API token (one-time setup)
+kindle2readwise configure --token YOUR_API_TOKEN
+
+# Export highlights from your Kindle
+kindle2readwise export --clippings-file /path/to/My\ Clippings.txt
+
+# Get help on any command
+kindle2readwise --help
+```
+
+For detailed usage examples and more advanced features, please refer to the [official documentation](https://biokraft.github.io/kindle2readwise/).
+
+## Development
+
+This section is for contributors who want to develop or modify kindle2readwise.
+
+### Setting Up the Development Environment
 
 ```bash
 # Clone the repository
@@ -41,101 +67,20 @@ source .venv/bin/activate  # On Linux/macOS
 # or
 .venv\Scripts\activate     # On Windows
 
-# Install dependencies for regular usage
-uv sync
-
 # Install dependencies for development (includes all extras)
-# uv sync --all-extras
+uv sync --all-extras
 ```
 
-### Global Installation
+### Local Development Installation
 
-To install kindle2readwise as a global command-line tool that can be used from any directory:
+To install kindle2readwise as a global command-line tool while developing:
 
 ```bash
 # From the project directory
-uv tool install .
-
-# For development/editable installation (changes to code are reflected immediately)
 uv tool install --editable .
 ```
 
-This creates an isolated environment for the tool while making the `kindle2readwise` command globally available in your PATH.
-
-### Uninstallation
-
-To uninstall the globally installed tool:
-
-```bash
-# Uninstall the tool
-uv tool uninstall kindle2readwise
-```
-
-If you need to clean up UV-related data:
-
-```bash
-# Clean UV cache (optional)
-uv cache clean
-```
-
-## Usage
-
-```bash
-# Basic usage
-kindle2readwise export
-
-# Specify clippings file
-kindle2readwise export /path/to/My\ Clippings.txt
-
-# Use interactive mode to review highlights before export
-kindle2readwise export -i
-
-# Configure Readwise token
-kindle2readwise config token
-
-# View export history
-kindle2readwise history
-
-# List highlights in the database
-kindle2readwise highlights list
-
-# Get help
-kindle2readwise --help
-```
-
-### Interactive Mode
-
-The interactive mode allows you to review and selectively export highlights:
-
-```bash
-kindle2readwise export --interactive
-
-# Or using the short form
-kindle2readwise export -i
-```
-
-In interactive mode:
-- All new highlights are displayed grouped by book
-- You can select specific highlights to export by their ID
-- Type 'a' to select all highlights
-- Type 'q' to quit without exporting
-
-This is useful when you want to:
-- Review highlights before sending them to Readwise
-- Export only specific highlights from your clippings file
-- Skip certain highlights you don't want in your Readwise account
-
-## Development
-
-For development work, install with all dependencies including development extras:
-
-```bash
-# Install all dependencies including development extras
-uv sync --all-extras
-
-# Alternatively, you can install just the development extras
-uv sync --extra dev
-```
+This allows your code changes to be immediately reflected in the globally installed command.
 
 ### Dependency Management with UV
 
