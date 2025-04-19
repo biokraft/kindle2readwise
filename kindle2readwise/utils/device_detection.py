@@ -2,6 +2,13 @@
 
 This module provides functions to detect connected Kindle devices
 across different operating systems (Windows, macOS, Linux).
+
+Note:
+    For newer Kindle models (Scribe and 2024 models), Amazon requires:
+    1. Using the Send to Kindle app for Mac OS
+    2. Accessing files through its USB File Manager feature
+
+    These newer models may not be directly detectable using the standard methods.
 """
 
 import logging
@@ -209,7 +216,7 @@ def format_device_list(devices: list[tuple[str, Path]]) -> str:
         Formatted string for display
     """
     if not devices:
-        return "No Kindle devices detected."
+        return "No Kindle devices detected.\n\n" + _get_newer_kindle_notice()
 
     lines = [f"Detected {len(devices)} Kindle device(s):"]
     lines.append("------------------------------------")
@@ -228,4 +235,23 @@ def format_device_list(devices: list[tuple[str, Path]]) -> str:
     lines.append("  kindle2readwise export CLIPPINGS_PATH")
     lines.append("Where CLIPPINGS_PATH is the path shown above.")
 
+    lines.append("\n" + _get_newer_kindle_notice())
+
     return "\n".join(lines)
+
+
+def _get_newer_kindle_notice() -> str:
+    """Return a notice about newer Kindle models.
+
+    Returns:
+        String containing information about newer Kindle models
+    """
+    return """Note for newer Kindle models (Scribe and 2024 models):
+Amazon requires:
+1. Using the Send to Kindle app for Mac OS
+2. Accessing files through its USB File Manager feature
+
+To export clippings from your Kindle:
+1. Download and install Send to Kindle app from Amazon
+2. Use the USB File Manager to copy My Clippings.txt to your computer
+3. Then run: kindle2readwise export /path/to/saved/My\\ Clippings.txt"""
