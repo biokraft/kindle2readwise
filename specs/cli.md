@@ -216,6 +216,51 @@ Python: 3.9.6
 Platform: macOS-13.0
 ```
 
+## Command: `reset-db`
+
+Reset the application database, removing all stored export history and configuration.
+
+### Usage
+
+```
+kindle2readwise reset-db [options]
+```
+
+### Options
+
+| Option | Type | Description | Default |
+|--------|------|-------------|---------|
+| `--force`, `-f` | Flag | Skip interactive confirmation | False |
+
+### Example Usage
+
+```bash
+# Interactive reset with confirmation
+kindle2readwise reset-db
+
+# Force reset without confirmation
+kindle2readwise reset-db --force
+
+```
+
+### Interactive Confirmation
+
+For safety, the reset operation requires explicit confirmation unless the `--force` flag is used:
+
+```
+WARNING: You are about to reset the application database.
+This will permanently delete all export history and tracking information.
+
+The following data will be deleted:
+- Export history (5 sessions)
+- Duplicate tracking data (152 entries)
+- Cached highlight information
+
+Are you absolutely sure you want to proceed? (type "RESET" to confirm): RESET
+
+Database reset successfully. All history and tracking data has been removed.
+```
+
 ## Global Options
 
 These options apply to all commands:
