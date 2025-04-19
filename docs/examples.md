@@ -1,8 +1,3 @@
----
-layout: default
-title: Examples
----
-
 # Examples
 
 This page provides practical examples of common usage scenarios for `kindle2readwise`.
