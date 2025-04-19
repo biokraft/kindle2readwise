@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ReadwiseHighlight(BaseModel):
@@ -12,6 +12,12 @@ class ReadwiseHighlight(BaseModel):
     location: int | None = Field(default=None, description="The location of the highlight within the book (as integer)")
     location_type: str | None = Field(default="location", description="The type of location (e.g., 'location', 'page')")
     highlighted_at: str | None = Field(default=None, description="ISO timestamp when the highlight was created")
+
+    @field_validator("title")
+    @classmethod
+    def format_title(cls, value):
+        """Replace underscores with spaces in the title for better readability in Readwise."""
+        return value.replace("_", " ") if value else value
 
 
 class ReadwiseHighlightBatch(BaseModel):
