@@ -30,7 +30,7 @@ ci = [
 ]
 
 [project.scripts]
-kindle2readwise = "kindle2readwise.cli:main"
+kindle2readwise = "kindle2readwise.cli.main:main"
 
 [build-system]
 requires = ["hatchling"]

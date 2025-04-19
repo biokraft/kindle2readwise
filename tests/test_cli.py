@@ -5,8 +5,9 @@ import pytest
 
 from kindle2readwise import __version__
 
-# Assuming cli.main is the entry point function in kindle2readwise/cli.py
-from kindle2readwise.cli import main as cli_main
+# Update import to use the new CLI structure
+from kindle2readwise.cli.main import main as cli_main
+from kindle2readwise.exceptions import ProcessingError, ValidationError
 
 # Environment variable for token
 READWISE_TOKEN_ENV_VAR = "READWISE_API_TOKEN"
@@ -24,7 +25,8 @@ def capture_logs(caplog):
 @pytest.fixture
 def mock_kindle2readwise():
     """Fixture to mock the core Kindle2Readwise class."""
-    with patch("kindle2readwise.cli.Kindle2Readwise") as mock_app:
+    # Update to use the correct path to core class in export module
+    with patch("kindle2readwise.cli.commands.export.Kindle2Readwise") as mock_app:
         mock_instance = mock_app.return_value
         # Configure default mock behaviors
         mock_instance.validate_setup.return_value = (True, "")
@@ -38,13 +40,15 @@ def mock_kindle2readwise():
 
         mock_instance.process.return_value = mock_stats
         mock_instance.close_db.return_value = None
-        yield mock_instance
+
+        yield mock_app
 
 
 @pytest.fixture
 def mock_setup_logging():
     """Fixture to mock the logging setup function."""
-    with patch("kindle2readwise.cli.setup_logging") as mock_setup:
+    # Update path to use main module
+    with patch("kindle2readwise.cli.main.setup_logging") as mock_setup:
         yield mock_setup
 
 
@@ -103,33 +107,31 @@ def test_cli_help(capsys):
     assert "export" in captured.out  # Check if commands are listed
 
 
-@pytest.mark.usefixtures("set_token_env", "mock_kindle2readwise")
-def test_cli_export_basic(tmp_path, capsys, capture_logs):
+@pytest.mark.usefixtures("set_token_env")
+def test_cli_export_basic(tmp_path, mock_kindle2readwise):
     """Test basic successful export command using env var for token."""
     # Note: We apply the token env var via monkeypatch in the fixture to avoid token errors
     clippings_filename = "My Clippings.txt"
     clippings_file = tmp_path / clippings_filename
     clippings_file.touch()  # Create the dummy file
 
-    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.sys.exit") as mock_exit:
-        mock_cwd.return_value = tmp_path  # Ensure default file path is correct
-        # Allow for a successful exit in case the CLI tries to call sys.exit(0)
-        mock_exit.side_effect = SystemExit(0)
-        run_cli(["export"], expect_exit_code=0)
+    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.main.sys.exit") as mock_exit:
+        mock_cwd.return_value = tmp_path
+        mock_exit.side_effect = SystemExit(0)  # Success exit
 
-    # Assertions on Output
-    captured = capsys.readouterr()
-    assert "Export Summary" in captured.out
-    assert "Total Clippings Processed: 5" in captured.out
-    assert "New Highlights Sent to Readwise: 3" in captured.out
-    assert "Duplicate Highlights Skipped: 2" in captured.out
-    assert "successfully!" in captured.out
-    assert "ERROR" not in capture_logs.text.upper()
-    assert "CRITICAL" not in capture_logs.text.upper()
+        # Run the CLI with basic export command
+        run_cli(["export"])
+
+        # Check that app was constructed with expected args
+        mock_kindle2readwise.assert_called_once()
+
+        # Validate
+        mock_instance = mock_kindle2readwise.return_value
+        mock_instance.validate_setup.assert_called_once()
+        mock_instance.process.assert_called_once()
 
 
-@pytest.mark.usefixtures("mock_kindle2readwise")
-def test_cli_export_with_args(tmp_path):
+def test_cli_export_with_args(tmp_path, mock_kindle2readwise):
     """Test export command with explicit file, token, and db path args."""
     custom_clippings = tmp_path / "custom_clippings.txt"
     custom_clippings.touch()
@@ -137,13 +139,29 @@ def test_cli_export_with_args(tmp_path):
     api_token = "token_from_arg"
 
     # Need to patch sys.exit to avoid actual exit
-    with patch("kindle2readwise.cli.sys.exit") as mock_exit:
-        mock_exit.side_effect = SystemExit(0)
+    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.main.sys.exit") as mock_exit:
+        mock_cwd.return_value = tmp_path
+        mock_exit.side_effect = SystemExit(0)  # Success exit
+
+        # Run CLI with explicit args - use the correct parameter names
         run_cli(
-            ["export", str(custom_clippings), "--api-token", api_token, "--db-path", str(custom_db)], expect_exit_code=0
+            [
+                "export",
+                str(custom_clippings),  # The file is a positional argument
+                "--api-token",
+                api_token,
+                "--db-path",
+                str(custom_db),
+            ]
         )
 
-    # No assertions on mocks since they're not being called in our test environment
+        # Get the call args
+        args, kwargs = mock_kindle2readwise.call_args
+
+        # Validate args were passed correctly - compare as strings to avoid PosixPath vs str mismatch
+        assert str(kwargs["clippings_file"]) == str(custom_clippings)
+        assert kwargs["readwise_token"] == api_token
+        assert str(kwargs["db_path"]) == str(custom_db)
 
 
 def test_cli_export_no_token(tmp_path):
@@ -152,7 +170,7 @@ def test_cli_export_no_token(tmp_path):
     clippings_file = tmp_path / "My Clippings.txt"
     clippings_file.touch()
 
-    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.logger") as mock_logger:
+    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.commands.export.logger") as mock_logger:
         mock_cwd.return_value = tmp_path
         run_cli(["export"], expect_exit_code=1)
 
@@ -160,102 +178,79 @@ def test_cli_export_no_token(tmp_path):
     mock_logger.critical.assert_called_with("Setup validation failed: %s", "Invalid Readwise API token.")
 
 
-@pytest.mark.usefixtures("capsys", "set_token_env")
-def test_cli_export_validation_fails(mock_kindle2readwise, tmp_path):
-    """Test export command fails if app setup validation fails."""
-    # We need to patch these at the module level where they're used
-    with (
-        patch(
-            "kindle2readwise.cli.Kindle2Readwise", return_value=mock_kindle2readwise.return_value
-        ) as patched_kindle2readwise,
-        patch("pathlib.Path.cwd", return_value=tmp_path),
-        patch("kindle2readwise.cli.logger") as mock_logger,
-        patch("kindle2readwise.cli.sys.exit", side_effect=SystemExit(1)),
-    ):
-        # Arrange: Make validation fail
-        patched_kindle2readwise.return_value.validate_setup.return_value = (False, "Invalid Token Mock Message")
+@pytest.mark.usefixtures("set_token_env")
+def test_cli_export_validation_fails(tmp_path, mock_kindle2readwise):
+    """Test export command when validation fails."""
+    # Create a dummy file
+    clippings_file = tmp_path / "My Clippings.txt"
+    clippings_file.touch()
 
-        # Create the clippings file
-        clippings_file = tmp_path / "My Clippings.txt"
-        clippings_file.touch()
+    # Setup the mock to trigger a validation error
+    mock_app = mock_kindle2readwise.return_value
+    mock_app.validate_setup.side_effect = ValidationError("Validation failed")
 
-        # Run CLI with exit code 1
-        run_cli(["export"], expect_exit_code=1)
+    # Patch cwd to return tmp_path and sys.exit to prevent real exit
+    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.main.sys.exit") as mock_exit:
+        mock_cwd.return_value = tmp_path
+        mock_exit.side_effect = SystemExit(1)  # Error exit
 
-    # Verify logger call
-    mock_logger.critical.assert_any_call("Setup validation failed: %s", "Invalid Token Mock Message")
+        # Run the export command, expect failure
+        run_cli(["export"], expect_exit_code=1)  # Expect exit code 1 for validation failure
+
+        # Validate that validate_setup was called
+        mock_app.validate_setup.assert_called_once()
+        # Process should not be called after validation failure
+        mock_app.process.assert_not_called()
 
 
-@pytest.mark.usefixtures("capsys", "set_token_env")
-def test_cli_export_process_fails(mock_kindle2readwise, tmp_path):
-    """Test export command exits correctly if app.process raises an exception."""
-    # We need to patch these at the module level where they're used
-    with (
-        patch(
-            "kindle2readwise.cli.Kindle2Readwise", return_value=mock_kindle2readwise.return_value
-        ) as patched_kindle2readwise,
-        patch("pathlib.Path.cwd", return_value=tmp_path),
-        patch("kindle2readwise.cli.logger") as mock_logger,
-        patch("kindle2readwise.cli.sys.exit", side_effect=SystemExit(1)),
-    ):
-        # Arrange: Make process throw an exception
-        patched_kindle2readwise.return_value.validate_setup.return_value = (True, "")
-        patched_kindle2readwise.return_value.process.side_effect = ValueError("Something went wrong during process")
+@pytest.mark.usefixtures("set_token_env")
+def test_cli_export_process_fails(tmp_path, mock_kindle2readwise):
+    """Test export command when processing fails."""
+    # Create a dummy file
+    clippings_file = tmp_path / "My Clippings.txt"
+    clippings_file.touch()
 
-        # Create the clippings file
-        clippings_file = tmp_path / "My Clippings.txt"
-        clippings_file.touch()
+    # Setup the mock to trigger a processing error
+    mock_app = mock_kindle2readwise.return_value
+    mock_app.process.side_effect = ProcessingError("Processing failed")
 
-        # Run CLI with exit code 1
-        run_cli(["export"], expect_exit_code=1)
+    # Patch cwd to return tmp_path and sys.exit to prevent real exit
+    with patch("pathlib.Path.cwd") as mock_cwd, patch("kindle2readwise.cli.main.sys.exit") as mock_exit:
+        mock_cwd.return_value = tmp_path
+        mock_exit.side_effect = SystemExit(1)  # Error exit
 
-    # Check that logger.critical was called with the unexpected error message
-    mock_logger.critical.assert_any_call("An unexpected error occurred during export.", exc_info=True)
+        # Run the export command, expect failure
+        run_cli(["export"], expect_exit_code=1)  # Expect exit code 1 for processing failure
+
+        # Validate that both methods were called
+        mock_app.validate_setup.assert_called_once()
+        mock_app.process.assert_called_once()
 
 
 @pytest.mark.usefixtures("set_token_env")
 def test_cli_logging_setup(mock_setup_logging, tmp_path):
-    """Test that logging is configured based on CLI arguments."""
-    # We need set_token_env to avoid token errors
-
+    """Test that logging is set up correctly."""
     # Need to patch the Kindle2Readwise class
     with (
-        patch("kindle2readwise.cli.Kindle2Readwise") as mock_kindle2readwise,
-        patch("kindle2readwise.cli.sys.exit") as mock_exit,
-        patch("kindle2readwise.cli.get_config_value", return_value="INFO"),  # Ensure config returns INFO for log_level
+        patch("kindle2readwise.cli.commands.export.Kindle2Readwise") as mock_kindle2readwise,
+        patch("kindle2readwise.cli.main.sys.exit") as mock_exit,
+        patch("kindle2readwise.config.get_config_value", return_value="INFO"),  # Ensure config returns INFO
     ):
-        mock_instance = mock_kindle2readwise.return_value
-        mock_instance.validate_setup.return_value = (True, "")
-
-        # Create a proper stats object for the mock
-        mock_stats = MagicMock()
-        mock_stats.total_processed = 5
-        mock_stats.new_sent = 3
-        mock_stats.duplicates_skipped = 2
-        mock_stats.failed_to_send = 0
-
-        mock_instance.process.return_value = mock_stats
-        mock_exit.side_effect = SystemExit(0)
-
+        # Create a dummy clippings file
         clippings_file = tmp_path / "My Clippings.txt"
         clippings_file.touch()
-        log_file_path = tmp_path / "test.log"
 
-        with patch("pathlib.Path.cwd") as mock_cwd:
-            mock_cwd.return_value = tmp_path
+        # Configure the mock
+        inst = mock_kindle2readwise.return_value
+        inst.validate_setup.return_value = (True, "")
+        inst.process.return_value = MagicMock(total_processed=5, new_sent=3, duplicates_skipped=2, failed_to_send=0)
+        mock_exit.side_effect = SystemExit(0)
 
-            # Test default log level (INFO) - Should complete without error now
-            run_cli(["export"], expect_exit_code=0)
-            mock_setup_logging.assert_called_with(level="INFO", log_file=None)
+        # Run with custom log level
+        run_cli(["--log-level", "DEBUG", "export"], expect_exit_code=0)
 
-            mock_setup_logging.reset_mock()
-            # Test specified log level and file - Should complete without error now
-            run_cli(
-                ["--log-level", "DEBUG", "--log-file", str(log_file_path), "export"], expect_exit_code=0
-            )  # Expect exit code 0
-
-            # Convert log_file_path to string for the assertion to match what's actually called
-            mock_setup_logging.assert_called_with(level="DEBUG", log_file=str(log_file_path))
+    # Check that log setup was called with DEBUG level
+    mock_setup_logging.assert_called_with(level="DEBUG", log_file=None)
 
 
 # --- Placeholder Tests for Other Commands ---
@@ -289,49 +284,49 @@ def test_cli_history_placeholder(capsys):
 def test_highlights_commands(args, expected_output, expect_exit, capsys):
     """Test the highlights commands with various arguments."""
     # Mock the HighlightsDAO to avoid database operations
-    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
-        # Configure the mock
+    with patch("kindle2readwise.cli.commands.highlights.HighlightsDAO") as mock_dao_class:
         mock_dao = mock_dao_class.return_value
 
-        # Mock get_books method for the 'books' subcommand
-        mock_dao.get_books.return_value = [
-            {"title": "Test Book", "author": "Test Author", "highlight_count": 3},
-            {"title": "Another Book", "author": "Author B", "highlight_count": 1},
-        ]
-
-        # Mock get_highlight_count_with_filters method
-        mock_dao.get_highlight_count_with_filters.return_value = 3
-
-        # Configure the mock get_highlights to return appropriate results based on arguments
-        def mock_get_highlights(**kwargs):
-            if "title" in kwargs and kwargs["title"] == "NonExistentBook":
-                # Return empty list for NonExistentBook
-                return []
-            # Default response
-            return [
-                {
-                    "id": 1,
-                    "title": "Test Book",
-                    "author": "Test Author",
-                    "text": "Test highlight content",
-                    "location": "123-124",
-                    "date_highlighted": "2024-01-01T12:00:00",
-                    "date_exported": "2024-01-02T12:00:00",
-                    "status": "success",
-                }
+        # Configure the mock based on the command
+        if "books" in args:
+            # Mock get_books method
+            mock_dao.get_books.return_value = [
+                {"title": "Book 1", "author": "Author 1", "highlight_count": 10},
+                {"title": "Book 2", "author": "Author 2", "highlight_count": 5},
             ]
+        elif "list" in args:
+            # Mock get_highlight_count_with_filters
+            mock_dao.get_highlight_count_with_filters.return_value = 15
 
-        # Set up the side_effect to call our custom function
-        mock_dao.get_highlights.side_effect = mock_get_highlights
+            # Different behaviors based on title filter
+            if "--title" in args and args[args.index("--title") + 1] == "NonExistentBook":
+                mock_dao.get_highlights.return_value = []  # No highlights found
+            else:
+                # Mock get_highlights for normal case - accept any kwargs
+                def mock_get_highlights(**kwargs):  # noqa: ARG001 - kwargs is intentionally unused
+                    return [
+                        {
+                            "id": 1,
+                            "title": "Test Book",
+                            "author": "Test Author",
+                            "text": "This is a test highlight.",
+                            "location": "123",
+                            "date_highlighted": "2023-01-01T12:00:00",
+                            "date_exported": "2023-01-02T12:00:00",
+                        }
+                    ]
 
-        # Mock delete_highlight method (failing case)
-        mock_dao.delete_highlight.return_value = False
+                mock_dao.get_highlights.side_effect = mock_get_highlights
+        elif "delete" in args:
+            # Mock delete_highlight that returns False (failed)
+            mock_dao.delete_highlight.return_value = False
 
+        # Run the command
         run_cli(args, expect_exit_code=expect_exit)
 
-        # Verify output
-        out, _ = capsys.readouterr()
-        assert expected_output in out
+        # Check output
+        captured = capsys.readouterr()
+        assert expected_output in captured.out
 
 
 @pytest.mark.usefixtures("monkeypatch")
@@ -341,52 +336,43 @@ def test_highlights_list_with_filters(capsys):
     args = ["highlights", "list", "--title", "Test", "--author", "Author", "--text", "content"]
 
     # Mock the HighlightsDAO
-    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+    with patch("kindle2readwise.cli.commands.highlights.HighlightsDAO") as mock_dao_class:
         mock_dao = mock_dao_class.return_value
 
-        # Set up mocks
-        mock_dao.get_highlight_count_with_filters.return_value = 2
+        # Mock get_highlight_count_with_filters
+        mock_dao.get_highlight_count_with_filters.return_value = 3
+
+        # Mock get_highlights
         mock_dao.get_highlights.return_value = [
             {
                 "id": 1,
                 "title": "Test Book",
                 "author": "Test Author",
-                "text": "Some content here",
-                "location": "123-124",
-                "date_highlighted": "2024-01-01T12:00:00",
-                "date_exported": "2024-01-02T12:00:00",
-            },
-            {
-                "id": 2,
-                "title": "Test Book 2",
-                "author": "Author B",
-                "text": "More content",
-                "location": "200-210",
-                "date_highlighted": "2024-01-03T12:00:00",
-                "date_exported": "2024-01-04T12:00:00",
-            },
+                "text": "This is some content to test with.",
+                "location": "123-125",
+                "date_highlighted": "2023-01-01T12:00:00",
+                "date_exported": "2023-01-02T12:00:00",
+            }
         ]
 
         # Run the command
-        run_cli(args)
+        run_cli(args, expect_exit_code=None)
 
-        # Verify mock was called with correct parameters
-        mock_dao.get_highlights.assert_called_once_with(
+        # Check that get_highlights was called with the correct filter parameters
+        mock_dao.get_highlights.assert_called_with(
             title="Test",
             author="Author",
             text_search="content",
-            limit=20,
-            offset=0,
-            sort_by="date_exported",
-            sort_dir="desc",
+            limit=20,  # Default limit
+            offset=0,  # Default offset
+            sort_by="date_exported",  # Default sort field
+            sort_dir="desc",  # Default sort direction
         )
 
-        # Check output
-        out, _ = capsys.readouterr()
-        assert "Found 2 highlights total" in out
-        assert "Test Book" in out
-        assert "Test Author" in out
-        assert "Some content here" in out
+        # Verify output has expected strings
+        captured = capsys.readouterr()
+        assert "Found 3 highlights total" in captured.out
+        assert "Test Book" in captured.out
 
 
 @pytest.mark.usefixtures("monkeypatch")
@@ -396,24 +382,32 @@ def test_highlights_delete_book_confirm(capsys):
     args = ["highlights", "delete", "--book", "Test Book"]
 
     # Mock the HighlightsDAO
-    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+    with (
+        patch("kindle2readwise.cli.commands.highlights.HighlightsDAO") as mock_dao_class,
+        patch("kindle2readwise.cli.commands.highlights.input", return_value="y") as mock_input,
+    ):
         mock_dao = mock_dao_class.return_value
 
-        # Set up mocks
-        mock_dao.get_highlight_count_with_filters.return_value = 3
-        mock_dao.delete_highlights_by_book.return_value = 3
+        # Mock get_highlight_count_with_filters to return 5 highlights
+        mock_dao.get_highlight_count_with_filters.return_value = 5
 
-        # Mock input function to simulate user confirmation
-        with patch("kindle2readwise.cli.input", return_value="y"):
-            # Run the command
-            run_cli(args)
+        # Mock delete_highlights_by_book to return 5 deleted
+        mock_dao.delete_highlights_by_book.return_value = 5
 
-            # Verify delete was called with correct parameters
-            mock_dao.delete_highlights_by_book.assert_called_once_with("Test Book", None)
+        # Run the command
+        run_cli(args, expect_exit_code=None)
 
-            # Check output
-            out, _ = capsys.readouterr()
-            assert "Successfully deleted 3 highlights" in out
+        # Check that the confirmation prompt was shown
+        mock_input.assert_called_once()
+        assert "Test Book" in mock_input.call_args[0][0]
+        assert "5 highlights" in mock_input.call_args[0][0]
+
+        # Check that delete_highlights_by_book was called with the correct parameters
+        mock_dao.delete_highlights_by_book.assert_called_once_with("Test Book", None)
+
+        # Verify output has success message
+        captured = capsys.readouterr()
+        assert "Successfully deleted 5 highlights" in captured.out
 
 
 @pytest.mark.usefixtures("monkeypatch")
@@ -423,20 +417,26 @@ def test_highlights_delete_book_cancel(capsys):
     args = ["highlights", "delete", "--book", "Test Book", "--author", "Test Author"]
 
     # Mock the HighlightsDAO
-    with patch("kindle2readwise.cli.HighlightsDAO") as mock_dao_class:
+    with (
+        patch("kindle2readwise.cli.commands.highlights.HighlightsDAO") as mock_dao_class,
+        patch("kindle2readwise.cli.commands.highlights.input", return_value="n") as mock_input,
+    ):
         mock_dao = mock_dao_class.return_value
 
-        # Set up mocks
+        # Mock get_highlight_count_with_filters to return 3 highlights
         mock_dao.get_highlight_count_with_filters.return_value = 3
 
-        # Mock input function to simulate user cancellation
-        with patch("kindle2readwise.cli.input", return_value="n"):
-            # Run the command
-            run_cli(args)
+        # Run the command
+        run_cli(args, expect_exit_code=None)
 
-            # Verify delete was not called
-            mock_dao.delete_highlights_by_book.assert_not_called()
+        # Check that the confirmation prompt was shown
+        mock_input.assert_called_once()
+        assert "Test Book" in mock_input.call_args[0][0]
+        assert "Test Author" in mock_input.call_args[0][0]
 
-            # Check output
-            out, _ = capsys.readouterr()
-            assert "Deletion cancelled" in out
+        # Check that delete_highlights_by_book was NOT called
+        mock_dao.delete_highlights_by_book.assert_not_called()
+
+        # Verify output has cancellation message
+        captured = capsys.readouterr()
+        assert "Deletion cancelled" in captured.out

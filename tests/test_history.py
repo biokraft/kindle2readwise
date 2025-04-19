@@ -52,32 +52,27 @@ def mock_dao():
 
 def test_display_history_table(mock_dao):
     """Test that history table display works correctly."""
-    from kindle2readwise.cli import _display_history_table
+    from kindle2readwise.cli.utils.formatters import format_history_table
 
     _, mock_history = mock_dao
 
     # Use patch to capture stdout
     with patch("builtins.print") as mock_print:
-        _display_history_table(mock_history)
+        print(format_history_table(mock_history))
 
-        # Check that print was called with expected header
-        mock_print.assert_any_call("\n--- Export History ---")
-
-        # Check that print was called with summary
+        # Check that print was called with expected content
         calls = mock_print.call_args_list
-        summary_call = False
-        for call in calls:
-            args, _ = call
-            if len(args) > 0 and "Total Exported: 40 highlights across 2 sessions" in args[0]:
-                summary_call = True
-                break
 
-        assert summary_call, "Expected summary line was not printed"
+        # The format_history_table returns a string which is then printed
+        # So we need to check the print arguments
+        table_output = calls[0][0][0]
+        assert "Export History" in table_output
+        assert "Total Exported: 40 highlights across 2 sessions" in table_output
 
 
 def test_export_history_formatted(mock_dao):
     """Test formatting history as JSON and CSV."""
-    from kindle2readwise.cli import _export_history_formatted
+    from kindle2readwise.cli.commands.history import _export_history_formatted
 
     _, mock_history = mock_dao
 

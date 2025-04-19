@@ -12,7 +12,12 @@ from unittest import mock
 
 import pytest
 
-from kindle2readwise.cli import handle_config_paths, handle_config_set, handle_config_show, handle_config_token
+from kindle2readwise.cli.commands.config import (
+    handle_config_paths,
+    handle_config_set,
+    handle_config_show,
+    handle_config_token,
+)
 from kindle2readwise.config import DEFAULT_CONFIG
 
 
