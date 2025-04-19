@@ -24,6 +24,7 @@ def create_parser() -> argparse.ArgumentParser:
     _setup_history_command(subparsers)
     _setup_highlights_command(subparsers)
     _setup_version_command(subparsers)
+    _setup_reset_db_command(subparsers)
 
     return parser
 
@@ -179,3 +180,12 @@ def _setup_version_command(subparsers):
 
     parser_version = subparsers.add_parser("version", help="Show version information")
     parser_version.set_defaults(func=handle_version)
+
+
+def _setup_reset_db_command(subparsers):
+    """Set up the reset-db command and its options."""
+    from .commands.reset_db import handle_reset_db
+
+    parser_reset_db = subparsers.add_parser("reset-db", help="Reset the database")
+    parser_reset_db.add_argument("--force", "-f", action="store_true", help="Force reset of the database")
+    parser_reset_db.set_defaults(func=handle_reset_db)

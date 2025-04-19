@@ -488,6 +488,30 @@ class HighlightsDAO:
             logger.error("Failed to delete highlights for book '%s': %s", title, e, exc_info=True)
             return 0
 
+    def get_highlight_count(self) -> int:
+        """Get the total number of highlights in the database.
+
+        Returns:
+            The count of highlights in the database
+        """
+        try:
+            return self.db["highlights"].count
+        except Exception as e:
+            logger.error("Failed to get highlight count: %s", e, exc_info=True)
+            return 0
+
+    def get_session_count(self) -> int:
+        """Get the total number of export sessions in the database.
+
+        Returns:
+            The count of export sessions in the database
+        """
+        try:
+            return self.db["export_sessions"].count
+        except Exception as e:
+            logger.error("Failed to get session count: %s", e, exc_info=True)
+            return 0
+
     # --- Migration Handling ---
     def _apply_migrations(self) -> None:
         """Apply any pending database migrations."""
