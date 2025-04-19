@@ -1,3 +1,4 @@
+remote_theme: pages-themes/minimal@v0.2.0
 theme: jekyll-theme-minimal
 title: kindle2readwise Documentation
 description: A tool to export your Kindle highlights to Readwise
@@ -15,6 +16,7 @@ plugins:
   - jekyll-feed
   - jekyll-sitemap
   - jekyll-seo-tag
+  - jekyll-remote-theme
 
 # Exclude from processing
 exclude:

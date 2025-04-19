@@ -4,12 +4,15 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - uses: actions/checkout@v3
 
@@ -22,10 +25,11 @@ jobs:
 
       - name: Build site
         working-directory: docs
-        run: bundle exec jekyll build
+        run: bundle install && bundle exec jekyll build
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/_site
+          enable_jekyll: false
