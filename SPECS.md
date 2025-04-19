@@ -77,35 +77,37 @@ The application follows these design principles:
 - Implement automatic Kindle device detection when connected (Done)
 - Support cross-platform device detection (Windows, macOS, Linux) (Done)
 
-### Phase 7: Notification System
-- Add OS-dependent notification system for export events
-- Implement OS notification system for error reporting
-- Create user-configurable notification preferences
-
-### Phase 8: Automated Export Controls
-- Create configurable user confirmation options before export
-- Allow users to enable/disable automated export via CLI options
-
-### Phase 9: Interactive Export Review
+### Phase 7: Interactive Export Review
 - Implement interactive mode for reviewing new highlights before export
 - Allow users to selectively skip or tag items during review
 
-### Phase 10: Advanced Highlight Processing
+### Phase 8: Advanced Highlight Processing
 - Implement smarter duplicate detection (e.g., fuzzy matching)
 - Detect and handle cases where a highlight might have been updated on the Kindle
 
-### Phase 11: Reliability & Error Handling
+### Phase 9: Reliability & Error Handling
 - Implement more robust error handling and recovery
 - Add retries for failed Readwise API calls
 
-### Phase 12: User Documentation (GitHub Pages)
+### Phase 10: User Documentation (GitHub Pages)
 - Set up GitHub Pages for the repository
 - Write documentation covering installation (pipx/uv tool install)
 - Write documentation covering basic usage and commands (export, history, config)
 - Include examples and troubleshooting tips
 
-### Phase 13: Database Maintainability
+### Phase 11: Database Maintainability
 - Add database migration support for future schema changes
+
+### Phase 12: Notification System (Postponed)
+- Add OS-dependent notification system for export events
+- Implement OS notification system for error reporting
+- Create user-configurable notification preferences
+- *Postponed due to 2024 Kindle device not being programmatically accessible*
+
+### Phase 13: Automated Export Controls (Postponed)
+- Create configurable user confirmation options before export
+- Allow users to enable/disable automated export via CLI options
+- *Postponed due to 2024 Kindle device not being programmatically accessible*
 
 ## Global Installation
 
