@@ -119,7 +119,7 @@ This project is under active development. See [SPECS.md](SPECS.md) for detailed 
 
 ## License
 
-[MIT License](LICENSE)
+[Apache License](LICENSE)
 
 ## Acknowledgements
 
