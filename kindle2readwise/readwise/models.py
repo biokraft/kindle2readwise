@@ -6,7 +6,7 @@ class ReadwiseHighlight(BaseModel):
 
     text: str = Field(description="The text content of the highlight")
     title: str = Field(description="The title of the book")
-    author: str | None = Field(default=None, description="The author of the book")
+    author: str | None = Field(default="Unknown", description="The author of the book")
     source_type: str = Field(default="kindle", description="The source type of the highlight")
     category: str = Field(default="books", description="The category of the highlight")
     location: int | None = Field(default=None, description="The location of the highlight within the book (as integer)")

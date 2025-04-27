@@ -9,7 +9,8 @@ class KindleClipping(BaseModel):
     title: str = Field(description="The title of the book")
     author: str | None = Field(default=None, description="The author of the book")
     type: str = Field(description="Type of clipping: 'highlight', 'note', or 'bookmark'")
-    location: str = Field(description="Location information from the Kindle")
+    page: str | None = Field(default=None, description="Page number of the clipping")
+    location: str | None = Field(default=None, description="Location information from the Kindle")
     date: datetime = Field(description="Date when the clipping was created")
     content: str = Field(description="Content of the clipping")
 
@@ -20,13 +21,17 @@ class KindleClipping(BaseModel):
 
     def to_readwise_format(self) -> dict:
         """Convert the clipping to the format expected by Readwise API."""
+        # Prioritize page over location for Readwise
+        location_value = self.page if self.page else self.location
+        location_type = "page" if self.page else "location"
+
         return {
             "text": self.content,
             "title": self.title,
-            "author": self.author,
+            "author": self.author or "Unknown",
             "source_type": "kindle",
             "category": "books",
-            "location": self.location,
-            "location_type": "location",
+            "location": location_value,
+            "location_type": location_type,
             "highlighted_at": self.date.isoformat() if self.date else None,
         }
