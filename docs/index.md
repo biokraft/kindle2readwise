@@ -11,12 +11,14 @@ A tool to export your Kindle highlights to Readwise.
     *(Requires Python 3.12+ and [uv](https://github.com/astral-sh/uv))*
 
 2.  **Configure:**
+    Get your API token from [Readwise](https://readwise.io/access_token) and store it (only needed once):
     ```bash
-    kindle2readwise configure --token YOUR_READWISE_API_TOKEN
+    kindle2readwise config token YOUR_READWISE_API_TOKEN
     ```
-    *(Get your token from [https://readwise.io/access_token](https://readwise.io/access_token))*
+    *(Alternatively, run `kindle2readwise config token` without the token for an interactive prompt)*
 
 3.  **Export:**
+    Connect your Kindle via USB and specify your clippings file:
     ```bash
     kindle2readwise export --clippings-file /path/to/My\\ Clippings.txt
     ```
