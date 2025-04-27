@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG = {
     "export_format": "default",
     "auto_confirm": False,
-    "log_level": "INFO",
+    "log_level": "WARNING",
     "database_path": "",  # Will be auto-populated based on config_dir
 }
 

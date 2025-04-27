@@ -38,8 +38,8 @@ def _setup_global_options(parser):
         "--log-level",
         type=str.upper,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
-        help="Set the logging level (default: INFO).",
+        default="WARNING",
+        help="Set the logging level (default: WARNING).",
     )
     parser.add_argument(
         "--log-file", type=str, default=None, help="Log output to a specified file in addition to the console."
