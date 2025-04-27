@@ -25,5 +25,6 @@ A tool to export your Kindle highlights to Readwise.
 
 - [Installation](installation.md)
 - [Usage](usage.md)
+- [Highlights Management](usage.md#command-highlights)
 - [Examples](examples.md)
 - [Troubleshooting](troubleshooting.md)

@@ -66,12 +66,14 @@ To see a summary of your past exports:
 # View basic history
 kindle2readwise history
 
-# Sample output:
-# ID  Date                 Books  Highlights  Status
-# --  -------------------  -----  ----------  ------
-# 5   2023-06-15 15:30:22  3      15          Success
-# 4   2023-06-10 09:45:11  2      7           Success
-# 3   2023-06-05 18:20:05  1      3           Success
+# View history with details
+kindle2readwise history --details
+
+# View the last 5 history entries
+kindle2readwise history --limit 5
+
+# Output history as JSON
+kindle2readwise history --format json
 ```
 
 For detailed information about a specific export session:
@@ -94,14 +96,90 @@ kindle2readwise export --auto-detect
 For users with multiple Readwise accounts or configurations:
 
 ```bash
-# Create different configuration profiles
-mkdir -p ~/.config/kindle2readwise/profiles/work
-mkdir -p ~/.config/kindle2readwise/profiles/personal
+# Show where configuration and database files are stored
+kindle2readwise config paths
 
-# Use a specific profile
-kindle2readwise --config ~/.config/kindle2readwise/profiles/work/config.json export
+# Set a default clippings path in the config
+kindle2readwise config set default_clippings_path "/Volumes/Kindle/documents/My Clippings.txt"
+
+# Set the API token (interactively)
+kindle2readwise config token
+
+# Create different configuration profiles (Manual Example)
+# Note: The tool doesn't have built-in profile support like shown below,
+# but you could manage multiple config/db files manually or via scripts.
+
+# # Create directories for profiles (Example - manual setup)
+# mkdir -p ~/.config/kindle2readwise/profiles/work
+# mkdir -p ~/.config/kindle2readwise/profiles/personal
+
+# # Use a specific DB/Config path (Example - manual)
+# kindle2readwise --db-path ~/.local/share/kindle2readwise/profiles/work/data.db export
 
 # Configure each profile
-kindle2readwise --config ~/.config/kindle2readwise/profiles/work/config.json configure
-kindle2readwise --config ~/.config/kindle2readwise/profiles/personal/config.json configure
+# # Example - manually setting token for a specific config file path (if supported)
+# kindle2readwise --config-path ~/.config/kindle2readwise/profiles/work/config.json config token YOUR_WORK_TOKEN
+# kindle2readwise --config-path ~/.config/kindle2readwise/profiles/personal/config.json config token YOUR_PERSONAL_TOKEN
+```
+
+## Managing Stored Highlights
+
+Interact with the highlights stored in the local database.
+
+**List Books and Highlight Counts:**
+
+```bash
+kindle2readwise highlights books
+```
+
+**List Recent Highlights:**
+
+```bash
+# List the last 10 highlights added
+kindle2readwise highlights list --limit 10 --sort date_exported --order desc
+```
+
+**Search Highlights:**
+
+```bash
+# Find highlights from the book "Project Hail Mary"
+kindle2readwise highlights list --title "Project Hail Mary"
+
+# Find highlights by author "Andy Weir"
+kindle2readwise highlights list --author "Weir"
+
+# Find highlights containing the text "Amaze"
+kindle2readwise highlights list --text "Amaze"
+
+# Combine filters
+kindle2readwise highlights list --title "Sapiens" --text "history"
+```
+
+**Delete Highlights:**
+
+```bash
+# First, find the ID of the highlight to delete
+kindle2readwise highlights list --text "Specific phrase to find highlight"
+# (Assume the ID is 99)
+
+# Delete the highlight by ID (will ask for confirmation)
+kindle2readwise highlights delete --id 99
+
+# Delete all highlights from the book "Dune" (will ask for confirmation)
+kindle2readwise highlights delete --book "Dune"
+
+# Delete highlights from "Dune" without confirmation
+kindle2readwise highlights delete --book "Dune" --force
+```
+
+## Debugging and Logging
+
+Increase log verbosity or log to a file for troubleshooting.
+
+```bash
+# Run export with DEBUG level logging
+kindle2readwise --log-level DEBUG export
+
+# Log export process to a file
+kindle2readwise --log-file export.log export
 ```
