@@ -200,11 +200,15 @@ class ReadwiseAPIClient:
             )
             return None
 
+        # Use the to_readwise_format method to get properly formatted data
+        readwise_data = clipping.to_readwise_format()
+        location_str = readwise_data["location"]
+
         # Parse location string to get the starting integer
         location_int = None
-        if clipping.location:
+        if location_str:
             # Find the first sequence of digits (handles "123" and "123-456")
-            match = re.search(r"^\d+", clipping.location)
+            match = re.search(r"^\d+", location_str)
             if match:
                 try:
                     location_int = int(match.group(0))
@@ -212,35 +216,35 @@ class ReadwiseAPIClient:
                     logger.warning(
                         "Could not convert parsed location '%s' to integer for clipping: Title='%s', Loc='%s'",
                         match.group(0),
-                        clipping.title,
-                        clipping.location,
+                        readwise_data["title"],
+                        location_str,
                     )
             else:
                 logger.warning(
                     "Could not parse integer location from string '%s' for clipping: Title='%s'",
-                    clipping.location,
-                    clipping.title,
+                    location_str,
+                    readwise_data["title"],
                 )
 
         # Skip if location couldn't be parsed to an integer
         if location_int is None:
             logger.warning(
                 "Skipping conversion due to invalid or missing location integer: Title='%s', Loc='%s'",
-                clipping.title,
-                clipping.location,
+                readwise_data["title"],
+                location_str,
             )
             return None
 
         logger.debug(
             "Converting clipping to ReadwiseHighlight: Title='%s', LocStr='%s', LocInt=%d",
-            clipping.title,
-            clipping.location,
+            readwise_data["title"],
+            location_str,
             location_int,
         )
         return ReadwiseHighlight(
-            text=clipping.content,
-            title=clipping.title,
-            author=clipping.author,
+            text=readwise_data["text"],
+            title=readwise_data["title"],
+            author=readwise_data["author"],
             location=location_int,  # Use the parsed integer location
-            highlighted_at=clipping.date.isoformat() if clipping.date else None,
+            highlighted_at=readwise_data["highlighted_at"],
         )
