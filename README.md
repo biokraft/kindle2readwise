@@ -35,8 +35,8 @@ A Python application for exporting Kindle highlights to Readwise. This tool pars
 # Install the latest version
 uv tool install git+https://github.com/biokraft/kindle2readwise.git
 
-# Or install a specific version (e.g., v0.1.0)
-# uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.0
+# Or install a specific version (e.g., v0.1.1)
+# uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.1
 ```
 
 ### Basic Usage

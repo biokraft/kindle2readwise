@@ -23,7 +23,7 @@ Dependencies will be managed through a `pyproject.toml` file in the project root
 ```toml
 [project]
 name = "kindle2readwise"
-version = "0.1.0"
+version = "0.1.1"
 description = "Export Kindle highlights to Readwise"
 readme = "README.md"
 requires-python = ">=3.12"

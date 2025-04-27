@@ -18,11 +18,11 @@ You can install `kindle2readwise` directly from the GitHub repository using `uv`
     ```
 
 2.  **Install a specific version:**
-    If you need a particular version (e.g., `v0.1.0`), you can specify the tag:
+    If you need a particular version (e.g., `v0.1.1`), you can specify the tag:
     ```bash
-    uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.0
+    uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.1
     ```
-    Replace `v0.1.0` with the desired version tag from the [GitHub Releases page](https://github.com/biokraft/kindle2readwise/releases).
+    Replace `v0.1.1` with the desired version tag from the [GitHub Releases page](https://github.com/biokraft/kindle2readwise/releases).
 
 3.  **(Optional) Install for development:**
     If you plan to contribute to the project, clone the repository and install in editable mode:

@@ -6,7 +6,7 @@ A tool to export your Kindle highlights to Readwise.
 
 1.  **Install:**
     ```bash
-    uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.0
+    uv tool install git+https://github.com/biokraft/kindle2readwise.git@v0.1.1
     ```
     *(Requires Python 3.12+ and [uv](https://github.com/astral-sh/uv))*
 
