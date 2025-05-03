@@ -121,6 +121,11 @@ def _setup_history_command(subparsers):
     parser_history.add_argument("--format", type=str, choices=["json", "csv"], help="Output format for history")
     parser_history.add_argument("--details", action="store_true", help="Show detailed session details")
     parser_history.add_argument("--limit", type=int, help="Limit the number of history entries to display")
+    parser_history.add_argument(
+        "--db-path",
+        type=str,
+        help="Path to the SQLite database (default: from config or database directory).",
+    )
     parser_history.set_defaults(func=handle_history)
 
 

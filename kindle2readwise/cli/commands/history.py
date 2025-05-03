@@ -25,8 +25,8 @@ def handle_history(args):
     """Handle the 'history' command to display export history."""
     logger.info("Starting 'history' command.")
 
-    # Get database path from config if not provided
-    db_path = get_config_value("database_path", DEFAULT_DB_PATH)
+    # Get database path from args if provided, else from config
+    db_path = getattr(args, "db_path", None) or get_config_value("database_path", DEFAULT_DB_PATH)
 
     try:
         # Initialize the DAO

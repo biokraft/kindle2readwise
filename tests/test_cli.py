@@ -7,6 +7,7 @@ from kindle2readwise import __version__
 
 # Update import to use the new CLI structure
 from kindle2readwise.cli.main import main as cli_main
+from kindle2readwise.database import HighlightsDAO
 from kindle2readwise.exceptions import ProcessingError, ValidationError
 
 # Environment variable for token
@@ -284,9 +285,16 @@ def test_cli_configure_placeholder(capsys):
     assert "Current Configuration" in captured.out
 
 
-def test_cli_history_placeholder(capsys):
+def test_cli_history_placeholder(capsys, tmp_path):
     """Test that the history command shows export history."""
-    run_cli(["history"], expect_exit_code=0)
+    # Create a temporary database and add a session
+    db_path = tmp_path / "test_history.db"
+    dao = HighlightsDAO(str(db_path))
+    session_id = dao.start_export_session("test-source.txt")
+    dao.complete_export_session(session_id, stats={"total": 5, "new": 3, "dupe": 2}, status="completed")
+
+    # Run the CLI history command with the temp db
+    run_cli(["history", "--db-path", str(db_path)], expect_exit_code=0)
     captured = capsys.readouterr()
     assert "--- Export History ---" in captured.out
 
