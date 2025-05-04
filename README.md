@@ -117,6 +117,16 @@ uv run pytest
 
 This project is under active development. See [SPECS.md](SPECS.md) for detailed specifications and development plans.
 
+## Star History
+
+<a href="https://www.star-history.com/#biokraft/kindle2readwise&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=biokraft/kindle2readwise&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=biokraft/kindle2readwise&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=biokraft/kindle2readwise&type=Date" />
+ </picture>
+</a>
+
 ## License
 
 [Apache License](LICENSE)
