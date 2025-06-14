@@ -23,6 +23,10 @@ class KindleClippingsParser:
     NOTE_CONTENT_PREVIEW_LENGTH = 50
     MAX_LOCATION_DISTANCE = 10
 
+    # Duplicate detection constants
+    CONTENT_OVERLAP_THRESHOLD = 0.7
+    CONTENT_PREVIEW_LENGTH = 50
+
     # Regular expressions for parsing
     TITLE_AUTHOR_RE = re.compile(r"^(.+?)(?:\s+\(([^)]+)\))?$")
     # Metadata regex patterns to handle various location formats
@@ -128,8 +132,11 @@ class KindleClippingsParser:
             else:
                 error_count += 1
 
-        # Apply note detection after all clippings are parsed
-        clippings_with_notes = self._attach_notes_to_highlights(clippings)
+        # Merge duplicate highlights before attaching notes
+        merged_clippings = self._merge_duplicate_highlights(clippings)
+
+        # Apply note detection after merging duplicates
+        clippings_with_notes = self._attach_notes_to_highlights(merged_clippings)
 
         self._log_parsing_summary(
             processed_count, skipped_count, bookmark_count, error_count, len(clippings_with_notes)
@@ -439,8 +446,151 @@ class KindleClippingsParser:
 
         return clipping_type, page, location, date_str
 
+    def _merge_duplicate_highlights(self, clippings: list[KindleClipping]) -> list[KindleClipping]:
+        """Merge duplicate highlights from the same book and page, keeping the most recent/longest version.
+
+        This addresses the issue where users resize highlights, creating multiple versions of the same highlight.
+        We want to keep only the final version and ensure notes are properly attached.
+
+        Args:
+            clippings: List of KindleClipping objects
+
+        Returns:
+            List of KindleClipping objects with duplicates merged
+        """
+        if not clippings:
+            return clippings
+
+        result = []
+        processed_indices = set()
+
+        for i, current_clipping in enumerate(clippings):
+            if i in processed_indices:
+                continue
+
+            # Only process highlights for merging
+            if current_clipping.type.lower() != "highlight":
+                result.append(current_clipping)
+                continue
+
+            # Find all duplicates of this highlight in the remaining clippings
+            duplicates = [current_clipping]
+            duplicate_indices = {i}
+
+            for j in range(i + 1, len(clippings)):
+                if j in processed_indices:
+                    continue
+
+                other_clipping = clippings[j]
+                if other_clipping.type.lower() == "highlight" and self._are_highlights_duplicates(
+                    current_clipping, other_clipping
+                ):
+                    duplicates.append(other_clipping)
+                    duplicate_indices.add(j)
+
+            # Mark all duplicates as processed
+            processed_indices.update(duplicate_indices)
+
+            # If we found duplicates, merge them
+            if len(duplicates) > 1:
+                merged_highlight = self._merge_highlights(duplicates)
+                result.append(merged_highlight)
+                logger.debug(
+                    "Merged %d duplicate highlights for '%s' (page %s): kept version with %d chars",
+                    len(duplicates),
+                    merged_highlight.title,
+                    merged_highlight.page,
+                    len(merged_highlight.content),
+                )
+            else:
+                # No duplicates found, keep the original
+                result.append(current_clipping)
+
+        logger.info(
+            "Duplicate merging complete. Original clippings: %d, After merging: %d", len(clippings), len(result)
+        )
+        return result
+
+    def _are_highlights_duplicates(self, highlight1: KindleClipping, highlight2: KindleClipping) -> bool:
+        """Check if two highlights are duplicates (same book, same page, overlapping content).
+
+        Args:
+            highlight1: First highlight
+            highlight2: Second highlight
+
+        Returns:
+            True if the highlights are considered duplicates
+        """
+        # Must be from the same book
+        if highlight1.title != highlight2.title:
+            return False
+
+        # Must be from the same page (if both have page info)
+        if highlight1.page and highlight2.page:
+            # Handle page ranges like "283-283" vs "283"
+            page1 = highlight1.page.split("-")[0]
+            page2 = highlight2.page.split("-")[0]
+            if page1 != page2:
+                return False
+        elif highlight1.page != highlight2.page:  # One has page, other doesn't
+            return False
+
+        # Check if content overlaps (one is a substring of the other or they share significant text)
+        content1 = highlight1.content.strip().lower()
+        content2 = highlight2.content.strip().lower()
+
+        # If one content is contained in the other, they're duplicates
+        if content1 in content2 or content2 in content1:
+            return True
+
+        # Check for significant overlap (at least 70% of the shorter text)
+        shorter_len = min(len(content1), len(content2))
+        if shorter_len == 0:
+            return False
+
+        # Simple overlap check: count common words
+        words1 = set(content1.split())
+        words2 = set(content2.split())
+        common_words = words1.intersection(words2)
+
+        # If at least 70% of words from the shorter text are in common, consider them duplicates
+        overlap_ratio = len(common_words) / min(len(words1), len(words2)) if min(len(words1), len(words2)) > 0 else 0
+        return overlap_ratio >= self.CONTENT_OVERLAP_THRESHOLD
+
+    def _merge_highlights(self, highlights: list[KindleClipping]) -> KindleClipping:
+        """Merge multiple duplicate highlights into one, keeping the most recent/longest version.
+
+        Args:
+            highlights: List of duplicate highlights to merge
+
+        Returns:
+            Single merged highlight
+        """
+        if not highlights:
+            raise ValueError("Cannot merge empty list of highlights")
+
+        if len(highlights) == 1:
+            return highlights[0]
+
+        # Sort by date (most recent first), then by content length (longest first)
+        sorted_highlights = sorted(highlights, key=lambda h: (h.date, len(h.content)), reverse=True)
+
+        # Use the most recent/longest highlight as the base
+        best_highlight = sorted_highlights[0]
+
+        logger.debug(
+            "Merging highlights: selected version from %s with %d chars: '%s'",
+            best_highlight.date,
+            len(best_highlight.content),
+            best_highlight.content[: self.CONTENT_PREVIEW_LENGTH] + "..."
+            if len(best_highlight.content) > self.CONTENT_PREVIEW_LENGTH
+            else best_highlight.content,
+        )
+
+        return best_highlight
+
     def _attach_notes_to_highlights(self, clippings: list[KindleClipping]) -> list[KindleClipping]:
-        """Attach notes to highlights by combining notes with preceding highlights from the same book/location.
+        """Attach notes to highlights by combining notes with related highlights from the same book/location.
 
         Args:
             clippings: List of KindleClipping objects
@@ -449,50 +599,49 @@ class KindleClippingsParser:
             List of parsed KindleClipping objects with notes attached to highlights
         """
         result = []
-        i = 0
 
-        while i < len(clippings):
-            current_clipping = clippings[i]
+        for current_clipping in clippings:
+            if current_clipping.type.lower() == "note":
+                # This is a note - look for a recent highlight to attach it to
+                attached = False
 
-            # If this is a highlight, check if the next clipping is a related note
-            if current_clipping.type.lower() == "highlight":
-                # Look ahead to see if there's a note that should be attached
-                if i + 1 < len(clippings) and self._is_note_related_to_highlight(current_clipping, clippings[i + 1]):
-                    note_clipping = clippings[i + 1]
-                    logger.debug(
-                        "Attaching note to highlight: %s (page %s) -> note content: %s",
-                        current_clipping.title,
-                        current_clipping.page,
-                        note_clipping.content[: self.NOTE_CONTENT_PREVIEW_LENGTH] + "..."
-                        if len(note_clipping.content) > self.NOTE_CONTENT_PREVIEW_LENGTH
-                        else note_clipping.content,
-                    )
+                # Look backwards through recent results to find a matching highlight
+                for i in range(len(result) - 1, -1, -1):
+                    if result[i].type.lower() == "highlight" and self._is_note_related_to_highlight(
+                        result[i], current_clipping
+                    ):
+                        # Found a matching highlight - attach the note
+                        logger.debug(
+                            "Attaching note to highlight: %s (page %s) -> note content: %s",
+                            result[i].title,
+                            result[i].page,
+                            current_clipping.content[: self.NOTE_CONTENT_PREVIEW_LENGTH] + "..."
+                            if len(current_clipping.content) > self.NOTE_CONTENT_PREVIEW_LENGTH
+                            else current_clipping.content,
+                        )
 
-                    # Create a new highlight with the note attached
-                    highlight_with_note = KindleClipping(
-                        title=current_clipping.title,
-                        author=current_clipping.author,
-                        type=current_clipping.type,
-                        page=current_clipping.page,
-                        location=current_clipping.location,
-                        date=current_clipping.date,
-                        content=current_clipping.content,
-                        note=note_clipping.content,
-                    )
-                    result.append(highlight_with_note)
-                    i += 2  # Skip both the highlight and the note
-                else:
-                    # Highlight without a related note
+                        # Create a new highlight with the note attached
+                        highlight_with_note = KindleClipping(
+                            title=result[i].title,
+                            author=result[i].author,
+                            type=result[i].type,
+                            page=result[i].page,
+                            location=result[i].location,
+                            date=result[i].date,
+                            content=result[i].content,
+                            note=current_clipping.content,
+                        )
+                        result[i] = highlight_with_note  # Replace the highlight with the version that has the note
+                        attached = True
+                        break
+
+                if not attached:
+                    # No matching highlight found - keep as standalone note
                     result.append(current_clipping)
-                    i += 1
-            elif current_clipping.type.lower() == "note":
-                # This is a standalone note (not attached to a preceding highlight)
-                result.append(current_clipping)
-                i += 1
+
             else:
-                # Other types (bookmarks, etc.)
+                # This is a highlight or other type - add it to results
                 result.append(current_clipping)
-                i += 1
 
         logger.info("Note detection complete. Original clippings: %d, Final clippings: %d", len(clippings), len(result))
         return result
