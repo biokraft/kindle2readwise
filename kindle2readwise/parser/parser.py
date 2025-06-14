@@ -19,6 +19,10 @@ class KindleClippingsParser:
     TITLE_PREVIEW_LENGTH = 80
     CONTENT_PREVIEW_LENGTH = 200
 
+    # Note attachment constants
+    NOTE_CONTENT_PREVIEW_LENGTH = 50
+    MAX_LOCATION_DISTANCE = 10
+
     # Regular expressions for parsing
     TITLE_AUTHOR_RE = re.compile(r"^(.+?)(?:\s+\(([^)]+)\))?$")
     # Metadata regex patterns to handle various location formats
@@ -124,8 +128,13 @@ class KindleClippingsParser:
             else:
                 error_count += 1
 
-        self._log_parsing_summary(processed_count, skipped_count, bookmark_count, error_count, len(clippings))
-        return clippings
+        # Apply note detection after all clippings are parsed
+        clippings_with_notes = self._attach_notes_to_highlights(clippings)
+
+        self._log_parsing_summary(
+            processed_count, skipped_count, bookmark_count, error_count, len(clippings_with_notes)
+        )
+        return clippings_with_notes
 
     def _log_parsing_summary(self, processed: int, skipped: int, bookmarks: int, errors: int, parsed: int) -> None:
         """Log a summary of parsing statistics.
@@ -429,3 +438,110 @@ class KindleClippingsParser:
         )
 
         return clipping_type, page, location, date_str
+
+    def _attach_notes_to_highlights(self, clippings: list[KindleClipping]) -> list[KindleClipping]:
+        """Attach notes to highlights by combining notes with preceding highlights from the same book/location.
+
+        Args:
+            clippings: List of KindleClipping objects
+
+        Returns:
+            List of parsed KindleClipping objects with notes attached to highlights
+        """
+        result = []
+        i = 0
+
+        while i < len(clippings):
+            current_clipping = clippings[i]
+
+            # If this is a highlight, check if the next clipping is a related note
+            if current_clipping.type.lower() == "highlight":
+                # Look ahead to see if there's a note that should be attached
+                if i + 1 < len(clippings) and self._is_note_related_to_highlight(current_clipping, clippings[i + 1]):
+                    note_clipping = clippings[i + 1]
+                    logger.debug(
+                        "Attaching note to highlight: %s (page %s) -> note content: %s",
+                        current_clipping.title,
+                        current_clipping.page,
+                        note_clipping.content[: self.NOTE_CONTENT_PREVIEW_LENGTH] + "..."
+                        if len(note_clipping.content) > self.NOTE_CONTENT_PREVIEW_LENGTH
+                        else note_clipping.content,
+                    )
+
+                    # Create a new highlight with the note attached
+                    highlight_with_note = KindleClipping(
+                        title=current_clipping.title,
+                        author=current_clipping.author,
+                        type=current_clipping.type,
+                        page=current_clipping.page,
+                        location=current_clipping.location,
+                        date=current_clipping.date,
+                        content=current_clipping.content,
+                        note=note_clipping.content,
+                    )
+                    result.append(highlight_with_note)
+                    i += 2  # Skip both the highlight and the note
+                else:
+                    # Highlight without a related note
+                    result.append(current_clipping)
+                    i += 1
+            elif current_clipping.type.lower() == "note":
+                # This is a standalone note (not attached to a preceding highlight)
+                result.append(current_clipping)
+                i += 1
+            else:
+                # Other types (bookmarks, etc.)
+                result.append(current_clipping)
+                i += 1
+
+        logger.info("Note detection complete. Original clippings: %d, Final clippings: %d", len(clippings), len(result))
+        return result
+
+    def _is_note_related_to_highlight(self, highlight: KindleClipping, note: KindleClipping) -> bool:
+        """Check if a note is related to a highlight (same book and similar location).
+
+        Args:
+            highlight: The highlight clipping
+            note: The potential note clipping
+
+        Returns:
+            True if the note should be attached to the highlight
+        """
+        # Must be a note type
+        if note.type.lower() != "note":
+            return False
+
+        # Must be from the same book
+        if highlight.title != note.title:
+            return False
+
+        # Must be from the same page (if both have page info)
+        if highlight.page and note.page:
+            # Handle page ranges like "207-207" vs "207"
+            highlight_page = highlight.page.split("-")[0]
+            note_page = note.page.split("-")[0]
+            if highlight_page != note_page:
+                return False
+
+        # If no page info, check location proximity
+        elif highlight.location and note.location:
+            try:
+                # Extract numeric location values
+                highlight_loc = int(highlight.location.split("-")[0])
+                note_loc = int(note.location.split("-")[0])
+                # Allow notes within a reasonable range
+                if abs(highlight_loc - note_loc) > self.MAX_LOCATION_DISTANCE:
+                    return False
+            except (ValueError, IndexError):
+                # If we can't parse locations, be conservative and don't attach
+                return False
+
+        logger.debug(
+            "Note is related to highlight: %s (page %s, loc %s) -> note (page %s, loc %s)",
+            highlight.title,
+            highlight.page,
+            highlight.location,
+            note.page,
+            note.location,
+        )
+        return True

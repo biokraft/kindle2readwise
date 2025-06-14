@@ -13,6 +13,7 @@ class KindleClipping(BaseModel):
     location: str | None = Field(default=None, description="Location information from the Kindle")
     date: datetime = Field(description="Date when the clipping was created")
     content: str = Field(description="Content of the clipping")
+    note: str | None = Field(default=None, description="Note content attached to this highlight")
 
     def get_identifier(self) -> str:
         """Generate a unique identifier for the clipping based on title, author, and content."""
@@ -25,7 +26,7 @@ class KindleClipping(BaseModel):
         location_value = self.page if self.page else self.location
         location_type = "page" if self.page else "location"
 
-        return {
+        readwise_data = {
             "text": self.content,
             "title": self.title,
             "author": self.author or "Unknown",
@@ -35,3 +36,9 @@ class KindleClipping(BaseModel):
             "location_type": location_type,
             "highlighted_at": self.date.isoformat() if self.date else None,
         }
+
+        # Add note if present
+        if self.note:
+            readwise_data["note"] = self.note
+
+        return readwise_data
