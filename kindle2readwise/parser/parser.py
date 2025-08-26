@@ -13,7 +13,7 @@ class KindleClippingsParser:
     """Parser for Kindle 'My Clippings.txt' files."""
 
     SEPARATOR = "=========="
-    MIN_LINES_PER_CLIPPING = 3
+    MIN_LINES_PER_CLIPPING = 2  # Allow clippings with just title and metadata (empty content)
 
     # Preview length limits for log messages
     TITLE_PREVIEW_LENGTH = 80
@@ -35,9 +35,11 @@ class KindleClippingsParser:
     )
     ALT_METADATA_RE = re.compile(r"- Your (\w+)(?: at [Ll]ocation (\d+-\d+|\d+))?(?: \| )?Added on (.+)$")
     PAGE_ONLY_RE = re.compile(r"- Your (\w+)(?: on)? page (\d+(?:-\d+)?)?(?: \| )?Added on (.+)$")
+    # New pattern to handle "on Location X-Y" format
+    LOCATION_ONLY_RE = re.compile(r"- Your (\w+) on [Ll]ocation (\d+-\d+|\d+)(?: \| )?Added on (.+)$")
     TYPE_RE = re.compile(r"- Your (\w+)")
     PAGE_RE = re.compile(r"page (\d+(?:-\d+)?)")
-    LOCATION_RE = re.compile(r"location (\d+-\d+|\d+)")
+    LOCATION_RE = re.compile(r"location (\d+-\d+|\d+)", re.IGNORECASE)
     DATE_RE = re.compile(r"Added on (.+)$")
 
     def __init__(self, clippings_file: str):
@@ -191,7 +193,12 @@ class KindleClippingsParser:
 
             # Parse content (everything after metadata line)
             content = self._extract_content(lines)
-            if not content and clipping_type.lower() != "bookmark":
+            
+            # Note: Image highlights (empty content) are handled by duplicate merging
+            # rather than being skipped outright, which consolidates multiple image
+            # highlights from the same book into a single entry
+            
+            if not content and clipping_type.lower() not in ["bookmark", "highlight"]:
                 logger.warning("Section %d ('%s') has metadata but no content.", section_index, title)
 
             clipping_obj = KindleClipping(
@@ -356,7 +363,16 @@ class KindleClippingsParser:
             logger.debug(f"Matched primary regex. Type: {clipping_type}, Page: {page}, Location: {location}")
             return clipping_type, page, location, date_str
 
-        # 2. Try alternate format: "- Your Highlight at location X-Y | Added on..."
+        # 2. Try location-only format: "- Your Highlight on Location X-Y | Added on..."
+        location_only_match = self.LOCATION_ONLY_RE.match(metadata_line)
+        if location_only_match:
+            clipping_type = location_only_match.group(1).lower()
+            location = location_only_match.group(2)
+            date_str = location_only_match.group(3)
+            logger.debug(f"Matched location-only regex. Type: {clipping_type}, Location: {location}")
+            return clipping_type, None, location, date_str
+
+        # 3. Try alternate format: "- Your Highlight at location X-Y | Added on..."
         alt_match = self.ALT_METADATA_RE.match(metadata_line)
         if alt_match:
             clipping_type = alt_match.group(1).lower()
@@ -365,7 +381,7 @@ class KindleClippingsParser:
             logger.debug(f"Matched alternate regex. Type: {clipping_type}, Location: {location}")
             return clipping_type, None, location, date_str
 
-        # 3. Try page-only format: "- Your Highlight on page X-Y | Added on..."
+        # 4. Try page-only format: "- Your Highlight on page X-Y | Added on..."
         page_match = self.PAGE_ONLY_RE.match(metadata_line)
         if page_match:
             clipping_type = page_match.group(1).lower()
@@ -374,7 +390,7 @@ class KindleClippingsParser:
             logger.debug(f"Matched page-only regex. Type: {clipping_type}, Page: {page}")
             return clipping_type, page, None, date_str
 
-        # 4. Special case for formats like "- Your Highlight on page 92 | location 1406-1407 | Added on..."
+        # 5. Special case for formats like "- Your Highlight on page 92 | location 1406-1407 | Added on..."
         if " | location " in metadata_line and " | Added on " in metadata_line:
             # Extract the type, page, location and date directly
             logger.debug("Using direct extraction for special case metadata")
